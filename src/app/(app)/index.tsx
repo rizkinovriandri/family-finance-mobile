@@ -1,0 +1,509 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { DonutChart, type DonutSlice } from '@/components/donut-chart';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { TrendChart } from '@/components/trend-chart';
+import { CategoryPalette, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { useFamily } from '@/lib/family-context';
+import { listAccounts, type AccountWithBalance } from '@/lib/queries/accounts';
+import {
+  getBudgetOverview,
+  getMonthlySummary,
+  getMonthlyTrend,
+  type BudgetOverview,
+  type MonthlySummary,
+  type MonthlyTrendPoint,
+} from '@/lib/queries/dashboard';
+import { getPortfolioValueByAccount } from '@/lib/queries/holdings';
+import { formatCurrency } from '@/lib/utils/currency';
+import { computeNetWorth } from '@/lib/utils/networth';
+
+const HIDDEN_AMOUNT = 'Rp ••••••';
+const TOP_CATEGORIES = 5;
+
+type DashboardData = {
+  accounts: AccountWithBalance[];
+  portfolioValueByAccount: Map<string, number>;
+  summary: MonthlySummary;
+  trend: MonthlyTrendPoint[];
+  budget: BudgetOverview;
+};
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 10) return 'Selamat pagi';
+  if (hour < 15) return 'Selamat siang';
+  if (hour < 18) return 'Selamat sore';
+  return 'Selamat malam';
+}
+
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '')).toUpperCase() || '?';
+}
+
+export default function BerandaScreen() {
+  const theme = useTheme();
+  const { membership } = useFamily();
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [balanceVisible, setBalanceVisible] = useState(true);
+
+  const load = useCallback(async () => {
+    if (!membership) return;
+    try {
+      const [accounts, portfolioValueByAccount, summary, trend, budget] = await Promise.all([
+        listAccounts(membership.family_id),
+        getPortfolioValueByAccount(membership.family_id),
+        getMonthlySummary(membership.family_id, membership.month_start_day),
+        getMonthlyTrend(membership.family_id, membership.month_start_day),
+        getBudgetOverview(membership.family_id, membership.month_start_day),
+      ]);
+      setData({ accounts, portfolioValueByAccount, summary, trend, budget });
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal memuat beranda.');
+    }
+  }, [membership]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }
+
+  const balances = useMemo(
+    () => (data ? computeNetWorth(data.accounts, data.portfolioValueByAccount) : []),
+    [data]
+  );
+  const primaryBalance = balances.find((b) => b.currency === 'IDR') ?? balances[0];
+  const otherBalances = balances.filter((b) => b !== primaryBalance);
+  const activeAccountsCount = data?.accounts.filter((a) => a.status !== 'Ditutup').length ?? 0;
+
+  const money = (amount: number) => (balanceVisible ? formatCurrency(amount, 'IDR') : HIDDEN_AMOUNT);
+
+  const totalIncome = data?.summary.totalIncome ?? 0;
+  const totalExpense = data?.summary.totalExpense ?? 0;
+  const netBalance = totalIncome - totalExpense;
+  const budgetPercentage =
+    data && data.budget.targetTotal > 0 ? Math.round((data.budget.realisasiTotal / data.budget.targetTotal) * 100) : 0;
+  const donutSlices = useMemo<DonutSlice[]>(() => {
+    const categories = data?.summary.categories ?? [];
+    const top = categories.slice(0, TOP_CATEGORIES).map((c, index) => ({
+      key: c.categoryId,
+      label: c.categoryName,
+      amount: c.amount,
+      percentage: c.percentage,
+      color: CategoryPalette[index % CategoryPalette.length],
+    }));
+    const rest = categories.slice(TOP_CATEGORIES);
+    if (rest.length === 0) return top;
+    const restAmount = rest.reduce((sum, c) => sum + c.amount, 0);
+    const totalAmount = categories.reduce((sum, c) => sum + c.amount, 0);
+    return [
+      ...top,
+      {
+        key: 'lainnya',
+        label: 'Lainnya',
+        amount: restAmount,
+        percentage: totalAmount > 0 ? Math.round((restAmount / totalAmount) * 100) : 0,
+        color: CategoryPalette[TOP_CATEGORIES % CategoryPalette.length],
+      },
+    ];
+  }, [data]);
+
+  const quickActions = [
+    { label: 'Tambah Transaksi', icon: 'add', route: '/transactions' },
+    { label: 'Transfer', icon: 'swap-horizontal', route: '/transactions' },
+    { label: 'Atur Budget', icon: 'pie-chart', route: '/budget' },
+    { label: 'Lainnya', icon: 'ellipsis-horizontal', route: '/more' },
+  ] as const;
+
+  return (
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={styles.header}>
+          <View style={styles.headerText}>
+            <ThemedText type="small" themeColor="textSecondary">
+              {getGreeting()}
+            </ThemedText>
+            <ThemedText type="subtitle" numberOfLines={1} style={styles.name}>
+              {membership?.display_name}
+            </ThemedText>
+          </View>
+          <Pressable onPress={() => router.push('/more')} hitSlop={8} accessibilityLabel="Buka menu Lainnya">
+            {membership?.avatar_url ? (
+              <Image source={{ uri: membership.avatar_url }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: theme.accent }]}>
+                <ThemedText type="smallBold" style={styles.avatarInitials}>
+                  {getInitials(membership?.display_name ?? '')}
+                </ThemedText>
+              </View>
+            )}
+          </Pressable>
+        </View>
+
+        {error && (
+          <ThemedText type="small" themeColor="danger">
+            {error}
+          </ThemedText>
+        )}
+
+        {!data && !error && <ActivityIndicator style={styles.loading} />}
+
+        {data && (
+          <ScrollView
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.accent} />}>
+            <ThemedView type="backgroundElement" style={styles.card}>
+              <View style={styles.rowBetween}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Total Saldo · {activeAccountsCount} akun
+                </ThemedText>
+                <Pressable
+                  onPress={() => setBalanceVisible((v) => !v)}
+                  hitSlop={8}
+                  accessibilityLabel={balanceVisible ? 'Sembunyikan saldo' : 'Tampilkan saldo'}>
+                  <Ionicons
+                    name={balanceVisible ? 'eye-outline' : 'eye-off-outline'}
+                    size={20}
+                    color={theme.textSecondary}
+                  />
+                </Pressable>
+              </View>
+              <ThemedText type="title" style={styles.balanceAmount}>
+                {balanceVisible ? formatCurrency(primaryBalance?.total ?? 0, primaryBalance?.currency ?? 'IDR') : HIDDEN_AMOUNT}
+              </ThemedText>
+              {otherBalances.length > 0 && (
+                <View style={[styles.otherBalances, { borderTopColor: theme.border }]}>
+                  {otherBalances.map((b) => (
+                    <View key={b.currency} style={styles.rowBetween}>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {b.currency}
+                      </ThemedText>
+                      <ThemedText type="smallBold">
+                        {balanceVisible ? formatCurrency(b.total, b.currency) : '••••••'}
+                      </ThemedText>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ThemedView>
+
+            <View style={styles.pillRow}>
+              <View style={[styles.pill, { backgroundColor: theme.success }]}>
+                <View style={styles.pillLabelRow}>
+                  <Ionicons name="arrow-down-circle" size={16} color="#ffffff" />
+                  <ThemedText type="small" style={styles.pillText}>
+                    Pemasukan
+                  </ThemedText>
+                </View>
+                <ThemedText type="smallBold" style={styles.pillText} numberOfLines={1} adjustsFontSizeToFit>
+                  {money(totalIncome)}
+                </ThemedText>
+              </View>
+              <View style={[styles.pill, { backgroundColor: theme.danger }]}>
+                <View style={styles.pillLabelRow}>
+                  <Ionicons name="arrow-up-circle" size={16} color="#ffffff" />
+                  <ThemedText type="small" style={styles.pillText}>
+                    Pengeluaran
+                  </ThemedText>
+                </View>
+                <ThemedText type="smallBold" style={styles.pillText} numberOfLines={1} adjustsFontSizeToFit>
+                  {money(totalExpense)}
+                </ThemedText>
+              </View>
+            </View>
+
+            <View style={styles.quickActions}>
+              {quickActions.map((action) => (
+                <Pressable key={action.label} style={styles.quickAction} onPress={() => router.push(action.route)}>
+                  <View style={[styles.quickActionIcon, { backgroundColor: theme.backgroundElement }]}>
+                    <Ionicons name={action.icon} size={22} color={theme.accent} />
+                  </View>
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.quickActionLabel}>
+                    {action.label}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
+
+            <ThemedView type="backgroundElement" style={styles.card}>
+              <View style={styles.rowBetween}>
+                <ThemedText type="smallBold">Ringkasan Bulan Ini</ThemedText>
+                <Pressable onPress={() => router.push('/reports')} hitSlop={8}>
+                  <ThemedText type="small" themeColor="accent">
+                    Lihat Semua
+                  </ThemedText>
+                </Pressable>
+              </View>
+
+              <TrendChart data={data.trend} />
+
+              <View style={styles.legendRow}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.dot, { backgroundColor: theme.success }]} />
+                  <View>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      Pemasukan
+                    </ThemedText>
+                    <ThemedText type="smallBold">{money(totalIncome)}</ThemedText>
+                  </View>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.dot, { backgroundColor: theme.danger }]} />
+                  <View>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      Pengeluaran
+                    </ThemedText>
+                    <ThemedText type="smallBold">{money(totalExpense)}</ThemedText>
+                  </View>
+                </View>
+              </View>
+
+              <View style={[styles.rowBetween, styles.netRow, { borderTopColor: theme.border }]}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Saldo Bersih
+                </ThemedText>
+                <ThemedText type="smallBold" themeColor={netBalance >= 0 ? 'success' : 'danger'}>
+                  {money(netBalance)}
+                </ThemedText>
+              </View>
+            </ThemedView>
+
+            <ThemedView type="backgroundElement" style={styles.card}>
+              <ThemedText type="smallBold">Pengeluaran Bulan Ini</ThemedText>
+              {donutSlices.length === 0 ? (
+                <ThemedText type="small" themeColor="textSecondary" style={styles.emptyText}>
+                  Belum ada transaksi pengeluaran bulan ini.
+                </ThemedText>
+              ) : (
+                <View style={styles.donutWrap}>
+                  <DonutChart slices={donutSlices} total={totalExpense} hideAmounts={!balanceVisible} />
+                  <Pressable onPress={() => router.push('/reports')} hitSlop={8}>
+                    <ThemedText type="small" themeColor="accent">
+                      Lihat Detail ›
+                    </ThemedText>
+                  </Pressable>
+                </View>
+              )}
+            </ThemedView>
+
+            <Pressable onPress={() => router.push('/budget')}>
+              <ThemedView type="backgroundElement" style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <ThemedText type="smallBold">Realisasi Anggaran</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {budgetPercentage}%
+                  </ThemedText>
+                </View>
+                {data.budget.targetTotal > 0 ? (
+                  <>
+                    <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
+                      <View
+                        style={{
+                          width: `${Math.min(budgetPercentage, 100)}%`,
+                          height: '100%',
+                          backgroundColor: budgetPercentage > 100 ? theme.danger : theme.accent,
+                        }}
+                      />
+                    </View>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {money(data.budget.realisasiTotal)} dari {money(data.budget.targetTotal)}
+                    </ThemedText>
+                  </>
+                ) : (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Belum ada anggaran bulan ini.
+                  </ThemedText>
+                )}
+              </ThemedView>
+            </Pressable>
+
+            {data.budget.overBudgetCategories.length > 0 && (
+              <View style={[styles.alert, { backgroundColor: theme.danger + '1F', borderColor: theme.danger + '4D' }]}>
+                <Ionicons name="alert-circle" size={20} color={theme.danger} />
+                <ThemedText type="small" themeColor="textSecondary" style={styles.flexShrink}>
+                  <ThemedText type="smallBold" themeColor="danger">
+                    {data.budget.overBudgetCategories.length} kategori melebihi anggaran:
+                  </ThemedText>{' '}
+                  {data.budget.overBudgetCategories.join(', ')}
+                </ThemedText>
+              </View>
+            )}
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.three,
+    gap: Spacing.three,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+  },
+  headerText: {
+    flex: 1,
+  },
+  name: {
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: 700,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  avatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitials: {
+    color: '#ffffff',
+  },
+  loading: {
+    marginTop: Spacing.five,
+  },
+  content: {
+    gap: Spacing.three,
+    paddingBottom: Spacing.four,
+  },
+  card: {
+    borderRadius: 20,
+    padding: Spacing.three,
+    gap: Spacing.two,
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  balanceAmount: {
+    fontSize: 30,
+    lineHeight: 38,
+    fontWeight: 700,
+  },
+  otherBalances: {
+    gap: Spacing.one,
+    marginTop: Spacing.one,
+    paddingTop: Spacing.two,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    gap: Spacing.three,
+  },
+  pill: {
+    flex: 1,
+    borderRadius: 16,
+    padding: Spacing.three,
+    gap: Spacing.one,
+  },
+  pillLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  pillText: {
+    color: '#ffffff',
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  quickAction: {
+    flex: 1,
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  quickActionIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionLabel: {
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  legendRow: {
+    flexDirection: 'row',
+    gap: Spacing.three,
+    marginTop: Spacing.one,
+  },
+  legendItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  netRow: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.two,
+    marginTop: Spacing.one,
+  },
+  emptyText: {
+    textAlign: 'center',
+    paddingVertical: Spacing.two,
+  },
+  donutWrap: {
+    gap: Spacing.three,
+    marginTop: Spacing.one,
+  },
+  flexShrink: {
+    flexShrink: 1,
+  },
+  track: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  alert: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: Spacing.three,
+  },
+});
