@@ -3,16 +3,19 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChartColors, Spacing } from '@/constants/theme';
+import { useIdrRates } from '@/hooks/use-idr-rates';
 import { useTheme } from '@/hooks/use-theme';
 import { formatCurrency } from '@/lib/utils/currency';
 
 type BalanceSummaryCardProps = {
   tabungan: number;
   investasi: number;
+  otherCurrencies?: { currency: string; total: number }[];
 };
 
-export function BalanceSummaryCard({ tabungan, investasi }: BalanceSummaryCardProps) {
+export function BalanceSummaryCard({ tabungan, investasi, otherCurrencies = [] }: BalanceSummaryCardProps) {
   const theme = useTheme();
+  const idrRates = useIdrRates(otherCurrencies.map((c) => c.currency));
   const total = tabungan + investasi;
 
   const positiveTabungan = Math.max(tabungan, 0);
@@ -56,6 +59,29 @@ export function BalanceSummaryCard({ tabungan, investasi }: BalanceSummaryCardPr
           </View>
         ))}
       </View>
+
+      {otherCurrencies.length > 0 && (
+        <View style={[styles.otherCurrencies, { borderTopColor: theme.border }]}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Mata uang lain (≈ estimasi kurs, tidak masuk total)
+          </ThemedText>
+          {otherCurrencies.map((c) => (
+            <View key={c.currency} style={styles.otherRow}>
+              <ThemedText type="small" themeColor="textSecondary">
+                {c.currency}
+              </ThemedText>
+              <View style={styles.otherAmount}>
+                <ThemedText type="smallBold">{formatCurrency(c.total, c.currency)}</ThemedText>
+                {idrRates[c.currency] !== undefined && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    ≈ {formatCurrency(c.total * idrRates[c.currency], 'IDR')}
+                  </ThemedText>
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
     </ThemedView>
   );
 }
@@ -89,6 +115,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one + Spacing.half,
+  },
+  otherCurrencies: {
+    gap: Spacing.one,
+    marginTop: Spacing.two,
+    paddingTop: Spacing.two,
+    borderTopWidth: 1,
+  },
+  otherRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  otherAmount: {
+    alignItems: 'flex-end',
   },
   dot: {
     width: 8,

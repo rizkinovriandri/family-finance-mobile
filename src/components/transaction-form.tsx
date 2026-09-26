@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-na
 import { CategoryPicker } from '@/components/category-picker';
 import { ChipPicker } from '@/components/chip-picker';
 import { CurrencyField } from '@/components/currency-field';
+import { DateField } from '@/components/date-field';
 import { PrimaryButton } from '@/components/primary-button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
@@ -241,14 +242,7 @@ export function TransactionForm({
           error={fieldErrors.family_member_id}
         />
 
-        <TextField
-          label="Tanggal (YYYY-MM-DD)"
-          value={date}
-          onChangeText={setDate}
-          placeholder="2026-09-25"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+        <DateField label="Tanggal" value={date} onChange={setDate} />
         <ChipPicker
           options={[
             { value: toLocalISODate(new Date()), label: 'Hari ini' },

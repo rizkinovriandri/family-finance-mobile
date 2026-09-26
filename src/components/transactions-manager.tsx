@@ -9,7 +9,7 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TransactionCard } from '@/components/transaction-card';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryStyle, getCategoryTint } from '@/constants/enums';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryStyle } from '@/constants/enums';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useRealtimeTick } from '@/hooks/use-realtime-tick';
 import { useTheme } from '@/hooks/use-theme';
@@ -22,7 +22,7 @@ import { dateGroupLabel } from '@/lib/utils/date';
 
 type Tab = 'Semua' | 'Pemasukan' | 'Pengeluaran';
 type QuickTab = 'Pengeluaran' | 'Pemasukan';
-type Row = { kind: 'header'; key: string; label: string } | { kind: 'tx'; key: string; transaction: TransactionWithDetails };
+type Row = { kind: 'header'; key: string; label: string } | { kind: 'tx'; key: string; transaction: TransactionWithDetails; isFirst: boolean; isLast: boolean };
 
 const TABS: Tab[] = ['Semua', 'Pemasukan', 'Pengeluaran'];
 const QUICK_TABS: QuickTab[] = ['Pengeluaran', 'Pemasukan'];
@@ -131,13 +131,21 @@ export function TransactionsManager({ filterAccountId }: TransactionsManagerProp
 
     const result: Row[] = [];
     let currentLabel: string | null = null;
+    let lastPushedLabel: string | null = null;
     for (const t of filtered) {
       const label = dateGroupLabel(t.date);
       if (label !== currentLabel) {
         result.push({ kind: 'header', key: `h-${label}`, label });
         currentLabel = label;
       }
-      result.push({ kind: 'tx', key: t.id, transaction: t });
+      result.push({ kind: 'tx', key: t.id, transaction: t, isFirst: currentLabel !== lastPushedLabel, isLast: false });
+      lastPushedLabel = currentLabel;
+    }
+    // Item satu tanggal digabung jadi satu kartu — tandai item terakhir tiap grup supaya sudut bawahnya membulat.
+    for (let i = 0; i < result.length; i++) {
+      const row = result[i];
+      const next = result[i + 1];
+      if (row.kind === 'tx' && (!next || next.kind === 'header')) row.isLast = true;
     }
     return result;
   }, [transactions, tab, categoryFilter, search, filterAccountId]);
@@ -215,14 +223,10 @@ export function TransactionsManager({ filterAccountId }: TransactionsManagerProp
         ) : (
           <View style={styles.quickGrid}>
             {quickCategories.map((c) => (
-              <Pressable
-                key={c.id}
-                onPress={() => openQuickAdd(c.id)}
-                style={[
-                  styles.quickTile,
-                  { backgroundColor: getCategoryStyle(c.name).mutedBg, borderColor: getCategoryTint(c.name, 0.4) },
-                ]}>
-                <CategoryIcon name={c.name} icon={c.icon} variant="bare" />
+              <Pressable key={c.id} onPress={() => openQuickAdd(c.id)} style={styles.quickItem}>
+                <View style={[styles.quickTile, { backgroundColor: getCategoryStyle(c.name).bright }]}>
+                  <CategoryIcon name={c.name} icon={c.icon} variant="onTile" />
+                </View>
                 <ThemedText themeColor="textSecondary" numberOfLines={2} style={styles.quickLabel}>
                   {c.name}
                 </ThemedText>
@@ -318,12 +322,13 @@ export function TransactionsManager({ filterAccountId }: TransactionsManagerProp
                 <TransactionCard
                   transaction={item.transaction}
                   showAccount={!filterAccountId}
+                  isFirst={item.isFirst}
+                  isLast={item.isLast}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                 />
               )
             }
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
             contentContainerStyle={styles.list}
             refreshing={refreshing}
             onRefresh={handleRefresh}
@@ -375,7 +380,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: Spacing.four,
+    paddingHorizontal: Spacing.three,
     paddingTop: Spacing.three,
     gap: Spacing.two,
   },
@@ -398,11 +403,9 @@ const styles = StyleSheet.create({
   list: {
     paddingBottom: BottomTabInset + Spacing.four,
   },
-  separator: {
-    height: Spacing.two,
-  },
   groupLabel: {
-    marginTop: Spacing.two,
+    marginTop: Spacing.three,
+    marginBottom: Spacing.two,
   },
   emptyText: {
     textAlign: 'center',
@@ -439,18 +442,23 @@ const styles = StyleSheet.create({
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.two,
+    // Kompensasi padding sisi tiap item supaya tepi grid lurus dengan konten lain.
+    marginHorizontal: -Spacing.one,
+    rowGap: Spacing.two,
+  },
+  quickItem: {
+    // 4 kolom sama lebar
+    width: '25%',
+    paddingHorizontal: Spacing.one,
+    alignItems: 'center',
+    gap: Spacing.one,
   },
   quickTile: {
-    // 4 kolom: (100% - 3 gap) / 4
-    width: '23%',
+    width: '100%',
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.one,
-    borderWidth: 1,
     borderRadius: Spacing.three,
-    paddingHorizontal: Spacing.one,
   },
   quickLabel: {
     fontSize: 10,

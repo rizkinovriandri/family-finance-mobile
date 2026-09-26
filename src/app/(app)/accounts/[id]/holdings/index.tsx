@@ -8,14 +8,55 @@ import { ThemedView } from '@/components/themed-view';
 import { INVESTMENT_CATEGORIES, getInvestmentCategoryForAccountType } from '@/constants/enums';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useRealtimeTick } from '@/hooks/use-realtime-tick';
+import { useTheme } from '@/hooks/use-theme';
 import { getAccount } from '@/lib/queries/accounts';
 import { listHoldingsForAccount, type Holding } from '@/lib/queries/holdings';
 import { formatCurrency } from '@/lib/utils/currency';
 import type { Database } from '@/lib/database.types';
 
+// Saham dicatat dalam lembar (sama dengan web); 1 lot = 100 lembar.
+const SHARES_PER_LOT = 100;
+
+function formatLots(shares: number) {
+  const lots = shares / SHARES_PER_LOT;
+  return `${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(lots)} lot`;
+}
+
+// Kolom: lot · harga rata-rata beli · harga saat ini · profit/loss · profit/loss %, masing-masing dengan judul kecil di atasnya.
+function StockCell({
+  label,
+  text,
+  color,
+  weight,
+  align = 'left',
+}: {
+  label: string;
+  text: string;
+  color?: 'success' | 'danger';
+  weight: number;
+  align?: 'left' | 'right';
+}) {
+  return (
+    <View style={{ flex: weight }}>
+      <ThemedText themeColor="textSecondary" numberOfLines={1} style={[styles.stockLabel, { textAlign: align }]}>
+        {label}
+      </ThemedText>
+      <ThemedText
+        type="small"
+        themeColor={color}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        style={[styles.stockValue, { textAlign: align }]}>
+        {text}
+      </ThemedText>
+    </View>
+  );
+}
+
 type AccountRow = Database['public']['Tables']['accounts']['Row'];
 
 export default function HoldingsScreen() {
+  const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [account, setAccount] = useState<AccountRow | null>(null);
   const [holdings, setHoldings] = useState<Holding[] | null>(null);
@@ -42,6 +83,7 @@ export default function HoldingsScreen() {
     }, [load, reloadTick])
   );
 
+  const currency = account?.currency ?? 'IDR';
   const category = account ? getInvestmentCategoryForAccountType(account.account_type) : null;
   const categoryLabel = INVESTMENT_CATEGORIES.find((c) => c.value === category)?.label ?? account?.account_type;
 
@@ -117,31 +159,58 @@ export default function HoldingsScreen() {
         )}
 
         <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-          {holdings?.map((h) => (
+          {!!holdings?.length && (
+          <ThemedView type="backgroundElement" style={[styles.group, { borderColor: theme.border }]}>
+          {holdings.map((h, index) => (
             <Pressable
               key={h.id}
               onPress={() =>
                 router.push({ pathname: '/accounts/[id]/holdings/[holdingId]', params: { id, holdingId: h.id } })
               }>
-              <ThemedView type="backgroundElement" style={styles.card}>
+              <ThemedView
+                type="backgroundElement"
+                style={[styles.card, index > 0 && { borderTopWidth: 1, borderTopColor: theme.border }]}>
                 <View style={styles.cardTop}>
                   <ThemedText type="smallBold" numberOfLines={1} style={styles.cardTitleText}>
-                    {h.name}
+                    {h.category === 'saham' && h.ticker_code ? h.ticker_code : h.name}
                   </ThemedText>
-                  <ThemedText type="smallBold">{formatCurrency(h.currentValue, account?.currency ?? 'IDR')}</ThemedText>
+                  <ThemedText type="smallBold">{formatCurrency(h.currentValue, currency)}</ThemedText>
                 </View>
-                <View style={styles.cardSubRow}>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {h.quantity} @ {formatCurrency(h.current_price, account?.currency ?? 'IDR')}
-                  </ThemedText>
-                  <ThemedText type="small" themeColor={h.gainLoss >= 0 ? 'success' : 'danger'}>
-                    {h.gainLoss >= 0 ? '+' : ''}
-                    {h.gainLossPercentage.toFixed(1)}%
-                  </ThemedText>
-                </View>
+                {h.category === 'saham' ? (
+                  <View style={styles.stockRow}>
+                    <StockCell label="Lot" text={formatLots(h.quantity)} weight={0.8} />
+                    <StockCell label="Rata-rata" text={formatCurrency(h.purchase_price, currency)} weight={1.2} />
+                    <StockCell label="Harga" text={formatCurrency(h.current_price, currency)} weight={1.2} />
+                    <StockCell
+                      label="P/L"
+                      text={`${h.gainLoss >= 0 ? '+' : ''}${formatCurrency(h.gainLoss, currency)}`}
+                      color={h.gainLoss >= 0 ? 'success' : 'danger'}
+                      weight={1.5}
+                    />
+                    <StockCell
+                      label="P/L %"
+                      text={`${h.gainLoss >= 0 ? '+' : ''}${h.gainLossPercentage.toFixed(1)}%`}
+                      color={h.gainLoss >= 0 ? 'success' : 'danger'}
+                      weight={0.9}
+                      align="right"
+                    />
+                  </View>
+                ) : (
+                  <View style={styles.cardSubRow}>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {h.quantity} @ {formatCurrency(h.current_price, currency)}
+                    </ThemedText>
+                    <ThemedText type="small" themeColor={h.gainLoss >= 0 ? 'success' : 'danger'}>
+                      {h.gainLoss >= 0 ? '+' : ''}
+                      {h.gainLossPercentage.toFixed(1)}%
+                    </ThemedText>
+                  </View>
+                )}
               </ThemedView>
             </Pressable>
           ))}
+          </ThemedView>
+          )}
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -157,7 +226,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: Spacing.four,
+    paddingHorizontal: Spacing.three,
     paddingTop: Spacing.four,
     gap: Spacing.three,
   },
@@ -190,8 +259,12 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingBottom: Spacing.four,
   },
-  card: {
+  group: {
     borderRadius: Spacing.three,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  card: {
     padding: Spacing.three,
     gap: Spacing.one,
   },
@@ -203,6 +276,20 @@ const styles = StyleSheet.create({
   },
   cardTitleText: {
     flexShrink: 1,
+  },
+  stockRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    marginTop: Spacing.one,
+  },
+  stockLabel: {
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  stockValue: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
   },
   cardSubRow: {
     flexDirection: 'row',

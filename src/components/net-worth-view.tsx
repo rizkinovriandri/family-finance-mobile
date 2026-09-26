@@ -6,6 +6,7 @@ import { AccountTypeIcon } from '@/components/account-type-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useIdrRates } from '@/hooks/use-idr-rates';
 import { useRealtimeTick } from '@/hooks/use-realtime-tick';
 import { useTheme } from '@/hooks/use-theme';
 import { useFamily } from '@/lib/family-context';
@@ -52,6 +53,7 @@ export function NetWorthView() {
   );
   const primary = netWorthByCurrency.find((c) => c.currency === 'IDR') ?? netWorthByCurrency[0];
   const others = netWorthByCurrency.filter((c) => c !== primary);
+  const idrRates = useIdrRates(others.map((c) => c.currency));
 
   if (error) {
     return (
@@ -129,15 +131,22 @@ export function NetWorthView() {
         {others.length > 0 && (
           <View style={[styles.others, { borderTopColor: theme.border }]}>
             <ThemedText type="small" themeColor="textSecondary">
-              Mata uang lain (tidak dikonversi ke Rupiah)
+              Mata uang lain (≈ estimasi kurs, tidak masuk total)
             </ThemedText>
             {others.map((c) => (
               <View key={c.currency} style={styles.currencyBlock}>
                 <View style={styles.rowBetween}>
                   <ThemedText type="smallBold">{c.currency}</ThemedText>
-                  <ThemedText type="smallBold" themeColor={c.total < 0 ? 'danger' : undefined}>
-                    {formatCurrency(c.total, c.currency)}
-                  </ThemedText>
+                  <View style={styles.otherAmount}>
+                    <ThemedText type="smallBold" themeColor={c.total < 0 ? 'danger' : undefined}>
+                      {formatCurrency(c.total, c.currency)}
+                    </ThemedText>
+                    {idrRates[c.currency] !== undefined && (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        ≈ {formatCurrency(c.total * idrRates[c.currency], 'IDR')}
+                      </ThemedText>
+                    )}
+                  </View>
                 </View>
 
                 {c.tabungan !== 0 && (
@@ -234,6 +243,9 @@ function LegendItem({ color, label, percentage }: { color: string; label: string
 }
 
 const styles = StyleSheet.create({
+  otherAmount: {
+    alignItems: 'flex-end',
+  },
   container: {
     gap: Spacing.three,
   },

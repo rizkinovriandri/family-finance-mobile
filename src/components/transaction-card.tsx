@@ -13,6 +13,9 @@ type TransactionCardProps = {
   transaction: TransactionWithDetails;
   // false kalau daftar sudah difilter per akun — nama akun tidak perlu diulang di tiap baris.
   showAccount?: boolean;
+  // Posisi dalam grup tanggal — item satu grup digabung jadi satu kartu (sudut atas/bawah hanya di ujung grup).
+  isFirst?: boolean;
+  isLast?: boolean;
   onEdit: (transaction: TransactionWithDetails) => void;
   onDelete: (transaction: TransactionWithDetails) => void;
 };
@@ -20,7 +23,7 @@ type TransactionCardProps = {
 // Content card baris transaksi — mirror struktur di family-finance-app/components/TransactionsManager.tsx:
 // ikon kategori, deskripsi (fallback nama kategori), jumlah +/- berwarna + tanggal, baris
 // "Kategori - Sub · Akun · Anggota", lalu aksi Ubah/Hapus (transfer tidak bisa diubah).
-export function TransactionCard({ transaction: t, showAccount = true, onEdit, onDelete }: TransactionCardProps) {
+export function TransactionCard({ transaction: t, showAccount = true, isFirst = true, isLast = true, onEdit, onDelete }: TransactionCardProps) {
   const theme = useTheme();
   const isIncome = t.type === 'Pemasukan';
 
@@ -33,16 +36,28 @@ export function TransactionCard({ transaction: t, showAccount = true, onEdit, on
     .join(' · ');
 
   return (
-    <ThemedView type="backgroundElement" style={[styles.card, { borderColor: theme.border }]}>
+    <ThemedView
+      type="backgroundElement"
+      style={[
+        styles.card,
+        { borderColor: theme.border },
+        isFirst && styles.cardFirst,
+        isLast && styles.cardLast,
+      ]}>
       <CategoryIcon name={t.categoryName} icon={t.categoryIcon} />
 
       <View style={styles.body}>
         <View style={styles.topRow}>
-          <ThemedText type="smallBold" numberOfLines={1} style={styles.title}>
-            {t.description || t.categoryName}
-          </ThemedText>
+          <View style={styles.titleBlock}>
+            <ThemedText type="smallBold" numberOfLines={1} style={styles.tight}>
+              {t.description || t.categoryName}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.meta}>
+              {meta}
+            </ThemedText>
+          </View>
           <View style={styles.amountBlock}>
-            <ThemedText type="smallBold" themeColor={isIncome ? 'success' : 'danger'}>
+            <ThemedText type="smallBold" themeColor={isIncome ? 'success' : 'danger'} style={styles.tight}>
               {isIncome ? '+' : '-'} {formatCurrency(t.amount, 'IDR')}
             </ThemedText>
             <ThemedText themeColor="textSecondary" style={styles.dateText}>
@@ -51,20 +66,16 @@ export function TransactionCard({ transaction: t, showAccount = true, onEdit, on
           </View>
         </View>
 
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          {meta}
-        </ThemedText>
-
         <View style={styles.actions}>
           {!t.transferPairId && (
             <Pressable onPress={() => onEdit(t)} hitSlop={8}>
-              <ThemedText type="small" themeColor="accent">
+              <ThemedText type="small" themeColor="accent" style={styles.meta}>
                 Ubah
               </ThemedText>
             </Pressable>
           )}
           <Pressable onPress={() => onDelete(t)} hitSlop={8}>
-            <ThemedText type="small" themeColor="danger">
+            <ThemedText type="small" themeColor="danger" style={styles.meta}>
               Hapus
             </ThemedText>
           </Pressable>
@@ -79,14 +90,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    borderRadius: Spacing.three,
-    borderWidth: 1,
-    padding: Spacing.three,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderTopWidth: 1,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two + Spacing.half * 2,
+  },
+  cardFirst: {
+    borderTopLeftRadius: Spacing.three,
+    borderTopRightRadius: Spacing.three,
+  },
+  cardLast: {
+    borderBottomWidth: 1,
+    borderBottomLeftRadius: Spacing.three,
+    borderBottomRightRadius: Spacing.three,
   },
   body: {
     flex: 1,
     minWidth: 0,
-    gap: Spacing.half,
+  },
+  tight: {
+    lineHeight: 18,
+  },
+  meta: {
+    fontSize: 12,
+    lineHeight: 15,
   },
   topRow: {
     flexDirection: 'row',
@@ -94,8 +122,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: Spacing.two,
   },
-  title: {
+  titleBlock: {
     flex: 1,
+    minWidth: 0,
+    gap: Spacing.half,
   },
   amountBlock: {
     alignItems: 'flex-end',
@@ -107,6 +137,6 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: Spacing.three,
-    marginTop: Spacing.one,
+    marginTop: Spacing.half,
   },
 });

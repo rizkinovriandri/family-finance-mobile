@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 
 import { ChipSelect } from '@/components/chip-select';
+import { DateField } from '@/components/date-field';
 import { PrimaryButton } from '@/components/primary-button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
@@ -9,12 +10,13 @@ import { BOND_TYPES, COUPON_FREQUENCIES, FUND_TYPES, GOLD_TYPES } from '@/consta
 import { Spacing } from '@/constants/theme';
 import type { InvestmentCategory } from '@/lib/database.types';
 import type { HoldingFormValues } from '@/lib/queries/holdings';
+import { toLocalISODate } from '@/lib/utils/date';
 
 const EMPTY_FORM: HoldingFormValues = {
   category: 'saham',
   name: '',
   platform: '',
-  purchase_date: new Date().toISOString().slice(0, 10),
+  purchase_date: toLocalISODate(new Date()),
   quantity: 0,
   purchase_price: 0,
   current_price: 0,
@@ -121,11 +123,10 @@ export function HoldingForm({ category, initialValues, submitLabel, loading, err
               value={(values.coupon_frequency ?? 'Tahunan') as (typeof COUPON_FREQUENCIES)[number]}
               onChange={(v) => set('coupon_frequency', v)}
             />
-            <TextField
+            <DateField
               label="Tanggal jatuh tempo"
               value={values.maturity_date ?? ''}
-              onChangeText={(text) => set('maturity_date', text)}
-              placeholder="YYYY-MM-DD"
+              onChange={(v) => set('maturity_date', v)}
             />
           </>
         )}
@@ -146,12 +147,7 @@ export function HoldingForm({ category, initialValues, submitLabel, loading, err
           placeholder="mis. Bibit, Ajaib, Pegadaian"
         />
 
-        <TextField
-          label="Tanggal beli"
-          value={values.purchase_date}
-          onChangeText={(text) => set('purchase_date', text)}
-          placeholder="YYYY-MM-DD"
-        />
+        <DateField label="Tanggal beli" value={values.purchase_date} onChange={(v) => set('purchase_date', v)} />
 
         <TextField
           label={category === 'emas' ? 'Berat (gram)' : 'Jumlah/lot/unit'}

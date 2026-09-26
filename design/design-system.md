@@ -60,3 +60,8 @@ Diekstrak dari `design/mockup.png` (10 layar, dark mode, branding placeholder "F
 `Insight` (grafik tren + kategori terbesar) kemungkinan diakses lewat "Lihat Semua" di card "Ringkasan Bulan Ini" pada Beranda — bukan bagian dari 5 tab utama.
 
 > Implementasi tab saat ini di kode (`src/components/app-tabs.tsx`) masih pakai nama lama (Beranda/Transaksi/Budget/**Laporan**/**Lainnya**) — perlu disesuaikan jadi Tujuan & Profil mengikuti mockup ini (lihat task selanjutnya).
+
+## Ikon kategori (mockup layar 3, Transaksi)
+
+Tile kotak membulat (squircle, radius ≈ 30% dari sisi) berwarna **solid**, glyph **putih** di tengah — bukan glyph berwarna di atas latar gelap. Hasil sampling: Gaji `#60C9A2`, Belanja `#F87075`, Makan & Minum `#F78A7D`, Transportasi `#577EE7`, Tagihan `#F6A054`, Hiburan `#9C74F5`. Diterapkan di `src/components/category-icon.tsx` (warna di `CATEGORY_STYLES`, `src/constants/enums.ts`). Mockup memakai gradient tipis (lebih terang di atas) — belum ditiru, tile masih flat.
+

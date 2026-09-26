@@ -4,10 +4,11 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } fro
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BalanceSummaryCard } from '@/components/balance-summary-card';
+import { IconChartLine, IconChevronRight } from '@/components/icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { isInvestmentAccountType } from '@/constants/enums';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { ChartColors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useRealtimeTick } from '@/hooks/use-realtime-tick';
 import { useTheme } from '@/hooks/use-theme';
 import { useFamily } from '@/lib/family-context';
@@ -15,6 +16,7 @@ import { deleteAccount, listAccounts, type AccountWithBalance } from '@/lib/quer
 import { listFamilyMembers, updateDefaultAccount } from '@/lib/queries/families';
 import { getPortfolioValueByAccount } from '@/lib/queries/holdings';
 import { formatCurrency } from '@/lib/utils/currency';
+import { computeNetWorth } from '@/lib/utils/networth';
 
 type Tab = 'Tabungan' | 'Investasi';
 
@@ -72,6 +74,18 @@ export default function AccountsScreen() {
     return { totalTabungan: tabungan, totalInvestasi: investasi };
   }, [accounts, portfolioValueByAccount]);
 
+  const otherCurrencies = useMemo(
+    () =>
+      computeNetWorth(accounts ?? [], portfolioValueByAccount)
+        .filter((c) => c.currency !== 'IDR')
+        .map((c) => ({ currency: c.currency, total: c.total })),
+    [accounts, portfolioValueByAccount]
+  );
+
+  function statusColor(status: AccountWithBalance['status']) {
+    return status === 'Aktif' ? theme.success : status === 'Ditutup' ? theme.danger : theme.textSecondary;
+  }
+
   async function handleToggleDefault(accountId: string) {
     if (!membership) return;
     const nextId = membership.default_account_id === accountId ? null : accountId;
@@ -122,7 +136,7 @@ export default function AccountsScreen() {
 
         {accounts && (
           <>
-            <BalanceSummaryCard tabungan={totalTabungan} investasi={totalInvestasi} />
+            <BalanceSummaryCard tabungan={totalTabungan} investasi={totalInvestasi} otherCurrencies={otherCurrencies} />
 
             <ThemedView type="backgroundElement" style={styles.tabSwitch}>
               {(['Tabungan', 'Investasi'] as Tab[]).map((t) => (
@@ -148,7 +162,8 @@ export default function AccountsScreen() {
         )}
 
         <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-          {filteredAccounts?.map((account) => {
+          <ThemedView type="backgroundElement" style={[styles.group, { borderColor: theme.border }, !filteredAccounts?.length && styles.hidden]}>
+          {filteredAccounts?.map((account, index) => {
             const isDefault = membership?.default_account_id === account.id;
             const owner = account.owner_member_id ? memberNameById.get(account.owner_member_id) : null;
             const isInvestment = isInvestmentAccountType(account.account_type);
@@ -157,7 +172,7 @@ export default function AccountsScreen() {
               : account.current_balance;
 
             const card = (
-              <ThemedView type="backgroundElement" style={styles.card}>
+              <View style={[styles.card, index > 0 && { borderTopWidth: 1, borderTopColor: theme.border }]}>
                 <View style={styles.cardTop}>
                   <View style={styles.cardTitleRow}>
                     <Pressable onPress={() => handleToggleDefault(account.id)} hitSlop={8}>
@@ -179,30 +194,32 @@ export default function AccountsScreen() {
                   </ThemedText>
                   <View style={styles.cardBadges}>
                     {owner && (
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {owner}
-                      </ThemedText>
+                      <View style={[styles.statusPill, { backgroundColor: `${ChartColors.investasi}26` }]}>
+                        <ThemedText style={[styles.statusText, { color: ChartColors.investasi }]} numberOfLines={1}>
+                          {owner}
+                        </ThemedText>
+                      </View>
                     )}
-                    <ThemedText
-                      type="small"
-                      themeColor={account.status === 'Aktif' ? 'success' : 'textSecondary'}>
-                      {account.status}
-                    </ThemedText>
+                    <View style={[styles.statusPill, { backgroundColor: `${statusColor(account.status)}26` }]}>
+                      <View style={[styles.statusDot, { backgroundColor: statusColor(account.status) }]} />
+                      <ThemedText style={[styles.statusText, { color: statusColor(account.status) }]}>
+                        {account.status}
+                      </ThemedText>
+                    </View>
                   </View>
                 </View>
 
                 {isInvestment && (
                   <Pressable
-                    style={styles.portfolioLink}
+                    style={[styles.portfolioButton, { backgroundColor: `${theme.accent}1A`, borderColor: `${theme.accent}4D` }]}
                     onPress={() =>
                       router.push({ pathname: '/accounts/[id]/holdings', params: { id: account.id } })
                     }>
-                    <ThemedText type="small" themeColor="accent">
+                    <IconChartLine size={16} color={theme.accent} />
+                    <ThemedText type="smallBold" themeColor="accent">
                       Lihat Portofolio
                     </ThemedText>
-                    <ThemedText type="small" themeColor="accent">
-                      ›
-                    </ThemedText>
+                    <IconChevronRight size={16} color={theme.accent} />
                   </Pressable>
                 )}
 
@@ -229,11 +246,12 @@ export default function AccountsScreen() {
                     </ThemedText>
                   </Pressable>
                 </View>
-              </ThemedView>
+              </View>
             );
 
             return <View key={account.id}>{card}</View>;
           })}
+          </ThemedView>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -249,7 +267,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: Spacing.four,
+    paddingHorizontal: Spacing.three,
     paddingTop: Spacing.three,
     paddingBottom: 0,
     gap: Spacing.two,
@@ -291,8 +309,15 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingBottom: Spacing.four,
   },
-  card: {
+  hidden: {
+    display: 'none',
+  },
+  group: {
     borderRadius: Spacing.three,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  card: {
     padding: Spacing.three,
     gap: Spacing.one,
   },
@@ -320,14 +345,39 @@ const styles = StyleSheet.create({
   cardSubText: {
     flexShrink: 1,
   },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    borderRadius: Spacing.three,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 2,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusText: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '600',
+  },
   cardBadges: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.two,
   },
-  portfolioLink: {
+  portfolioButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: Spacing.one + Spacing.half,
+    borderRadius: Spacing.four,
+    borderWidth: 1,
+    paddingVertical: Spacing.one + Spacing.half,
+    paddingHorizontal: Spacing.three,
+    marginTop: Spacing.one,
   },
   cardActions: {
     flexDirection: 'row',
