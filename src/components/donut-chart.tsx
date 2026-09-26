@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import Svg, { Circle, G } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -18,14 +18,20 @@ const SIZE = 120;
 const STROKE = 16;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+// Lingkaran SVG mulai menggambar di posisi jam 3; geser seperempat keliling supaya arc pertama
+// mulai dari jam 12. Sengaja tidak pakai rotation/origin pada <G>: di web keduanya jadi atribut DOM
+// `transform-origin` yang memicu warning "Invalid DOM property".
+const START_OFFSET = CIRCUMFERENCE / 4;
 
 type DonutChartProps = {
   slices: DonutSlice[];
   total: number;
   hideAmounts?: boolean;
+  // Ganti isi tengah donut jadi "58% Terpakai" (halaman Budget) alih-alih total rupiah (Beranda).
+  centerPercentage?: number;
 };
 
-export function DonutChart({ slices, total, hideAmounts }: DonutChartProps) {
+export function DonutChart({ slices, total, hideAmounts, centerPercentage }: DonutChartProps) {
   const theme = useTheme();
   const sliceTotal = slices.reduce((sum, s) => sum + s.amount, 0);
 
@@ -40,37 +46,48 @@ export function DonutChart({ slices, total, hideAmounts }: DonutChartProps) {
     <View style={styles.row}>
       <View style={styles.donut}>
         <Svg width={SIZE} height={SIZE}>
-          <G rotation={-90} origin={`${SIZE / 2}, ${SIZE / 2}`}>
+          <Circle
+            cx={SIZE / 2}
+            cy={SIZE / 2}
+            r={RADIUS}
+            stroke={theme.backgroundSelected}
+            strokeWidth={STROKE}
+            fill="none"
+          />
+          {arcs.map((a) => (
             <Circle
+              key={a.key}
               cx={SIZE / 2}
               cy={SIZE / 2}
               r={RADIUS}
-              stroke={theme.backgroundSelected}
+              stroke={a.color}
               strokeWidth={STROKE}
               fill="none"
+              strokeDasharray={`${a.length} ${CIRCUMFERENCE - a.length}`}
+              strokeDashoffset={START_OFFSET - a.offset}
             />
-            {arcs.map((a) => (
-              <Circle
-                key={a.key}
-                cx={SIZE / 2}
-                cy={SIZE / 2}
-                r={RADIUS}
-                stroke={a.color}
-                strokeWidth={STROKE}
-                fill="none"
-                strokeDasharray={`${a.length} ${CIRCUMFERENCE - a.length}`}
-                strokeDashoffset={-a.offset}
-              />
-            ))}
-          </G>
+          ))}
         </Svg>
-        <View style={styles.center} pointerEvents="none">
-          <ThemedText type="small" themeColor="textSecondary" style={styles.centerLabel}>
-            Total
-          </ThemedText>
-          <ThemedText type="smallBold" numberOfLines={1} adjustsFontSizeToFit style={styles.centerAmount}>
-            {hideAmounts ? 'Rp ••••' : formatCurrency(total, 'IDR')}
-          </ThemedText>
+        <View style={styles.center}>
+          {centerPercentage !== undefined ? (
+            <>
+              <ThemedText type="smallBold" style={styles.centerPercentage}>
+                {centerPercentage}%
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.centerLabel}>
+                Terpakai
+              </ThemedText>
+            </>
+          ) : (
+            <>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.centerLabel}>
+                Total
+              </ThemedText>
+              <ThemedText type="smallBold" numberOfLines={1} adjustsFontSizeToFit style={styles.centerAmount}>
+                {hideAmounts ? 'Rp ••••' : formatCurrency(total, 'IDR')}
+              </ThemedText>
+            </>
+          )}
         </View>
       </View>
 
@@ -101,6 +118,7 @@ const styles = StyleSheet.create({
   },
   center: {
     ...StyleSheet.absoluteFill,
+    pointerEvents: 'none',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: STROKE + Spacing.one,
@@ -108,6 +126,10 @@ const styles = StyleSheet.create({
   centerLabel: {
     fontSize: 11,
     lineHeight: 14,
+  },
+  centerPercentage: {
+    fontSize: 20,
+    lineHeight: 24,
   },
   centerAmount: {
     fontSize: 13,

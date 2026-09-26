@@ -97,3 +97,43 @@ export async function updateDefaultAccount(memberId: string, accountId: string |
     .eq('id', memberId);
   if (error) throw error;
 }
+
+export async function updateMonthStartDay(familyId: string, monthStartDay: number) {
+  const { error } = await supabase.from('families').update({ month_start_day: monthStartDay }).eq('id', familyId);
+  if (error) throw error;
+}
+
+export async function updateDisplayName(memberId: string, displayName: string) {
+  const { error } = await supabase.from('family_members').update({ display_name: displayName }).eq('id', memberId);
+  if (error) throw error;
+}
+
+const AVATAR_BUCKET = 'avatars';
+
+// Nama file tetap ("avatar.<ext>") supaya upload berikutnya menimpa file lama (upsert), dan query
+// string timestamp ditempel ke URL supaya cache gambar lama tidak tampil — sama dengan versi web.
+export async function uploadAvatar(userId: string, uri: string, mimeType: string) {
+  const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
+  const path = `${userId}/avatar.${ext}`;
+
+  const response = await fetch(uri);
+  const body = await response.arrayBuffer();
+
+  const { error } = await supabase.storage
+    .from(AVATAR_BUCKET)
+    .upload(path, body, { upsert: true, cacheControl: '3600', contentType: mimeType });
+  if (error) throw error;
+
+  const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
+  return `${data.publicUrl}?t=${Date.now()}`;
+}
+
+export async function updateAvatarUrl(memberId: string, avatarUrl: string | null) {
+  const { error } = await supabase.from('family_members').update({ avatar_url: avatarUrl }).eq('id', memberId);
+  if (error) throw error;
+}
+
+export async function updateFamilyName(familyId: string, familyName: string) {
+  const { error } = await supabase.from('families').update({ name: familyName }).eq('id', familyId);
+  if (error) throw error;
+}

@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { INVESTMENT_CATEGORIES, getInvestmentCategoryForAccountType } from '@/constants/enums';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useRealtimeTick } from '@/hooks/use-realtime-tick';
 import { getAccount } from '@/lib/queries/accounts';
 import { listHoldingsForAccount, type Holding } from '@/lib/queries/holdings';
 import { formatCurrency } from '@/lib/utils/currency';
@@ -19,6 +20,7 @@ export default function HoldingsScreen() {
   const [account, setAccount] = useState<AccountRow | null>(null);
   const [holdings, setHoldings] = useState<Holding[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const reloadTick = useRealtimeTick(['investment_holdings'], account?.family_id);
 
   const load = useCallback(async () => {
     try {
@@ -36,7 +38,8 @@ export default function HoldingsScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reloadTick sengaja jadi dependency: naik saat ada perubahan realtime, memicu muat ulang
+    }, [load, reloadTick])
   );
 
   const category = account ? getInvestmentCategoryForAccountType(account.account_type) : null;

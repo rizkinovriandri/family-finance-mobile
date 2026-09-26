@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { isInvestmentAccountType } from '@/constants/enums';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useRealtimeTick } from '@/hooks/use-realtime-tick';
 import { useTheme } from '@/hooks/use-theme';
 import { useFamily } from '@/lib/family-context';
 import { deleteAccount, listAccounts, type AccountWithBalance } from '@/lib/queries/accounts';
@@ -20,6 +21,7 @@ type Tab = 'Tabungan' | 'Investasi';
 export default function AccountsScreen() {
   const theme = useTheme();
   const { membership, refresh: refreshFamily } = useFamily();
+  const reloadTick = useRealtimeTick(['accounts', 'transactions', 'investment_holdings'], membership?.family_id);
   const [accounts, setAccounts] = useState<AccountWithBalance[] | null>(null);
   const [memberNameById, setMemberNameById] = useState<Map<string, string>>(new Map());
   const [portfolioValueByAccount, setPortfolioValueByAccount] = useState<Map<string, number>>(new Map());
@@ -47,7 +49,8 @@ export default function AccountsScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reloadTick sengaja jadi dependency: naik saat ada perubahan realtime, memicu muat ulang
+    }, [load, reloadTick])
   );
 
   const filteredAccounts = useMemo(
@@ -204,6 +207,14 @@ export default function AccountsScreen() {
                 )}
 
                 <View style={styles.cardActions}>
+                  <Pressable
+                    onPress={() =>
+                      router.push({ pathname: '/accounts/[id]/history', params: { id: account.id } })
+                    }>
+                    <ThemedText type="small" themeColor="accent">
+                      Riwayat
+                    </ThemedText>
+                  </Pressable>
                   <Pressable
                     onPress={() =>
                       router.push({ pathname: '/accounts/[id]', params: { id: account.id } })

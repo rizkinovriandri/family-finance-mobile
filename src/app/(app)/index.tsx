@@ -1,4 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -6,10 +5,22 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, V
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DonutChart, type DonutSlice } from '@/components/donut-chart';
+import {
+  IconAlertCircle,
+  IconArrowDownCircle,
+  IconArrowUpCircle,
+  IconArrowsExchange,
+  IconChartPie,
+  IconDots,
+  IconEye,
+  IconEyeOff,
+  IconPlus,
+} from '@/components/icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TrendChart } from '@/components/trend-chart';
 import { CategoryPalette, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useRealtimeTick } from '@/hooks/use-realtime-tick';
 import { useTheme } from '@/hooks/use-theme';
 import { useFamily } from '@/lib/family-context';
 import { listAccounts, type AccountWithBalance } from '@/lib/queries/accounts';
@@ -22,6 +33,7 @@ import {
   type MonthlyTrendPoint,
 } from '@/lib/queries/dashboard';
 import { getPortfolioValueByAccount } from '@/lib/queries/holdings';
+import { getInitials } from '@/lib/utils/avatar';
 import { formatCurrency } from '@/lib/utils/currency';
 import { computeNetWorth } from '@/lib/utils/networth';
 
@@ -44,14 +56,10 @@ function getGreeting() {
   return 'Selamat malam';
 }
 
-function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '')).toUpperCase() || '?';
-}
-
 export default function BerandaScreen() {
   const theme = useTheme();
   const { membership } = useFamily();
+  const reloadTick = useRealtimeTick(['transactions', 'accounts', 'budgets'], membership?.family_id);
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,7 +85,8 @@ export default function BerandaScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reloadTick sengaja jadi dependency: naik saat ada perubahan realtime, memicu muat ulang
+    }, [load, reloadTick])
   );
 
   async function handleRefresh() {
@@ -127,10 +136,10 @@ export default function BerandaScreen() {
   }, [data]);
 
   const quickActions = [
-    { label: 'Tambah Transaksi', icon: 'add', route: '/transactions' },
-    { label: 'Transfer', icon: 'swap-horizontal', route: '/transactions' },
-    { label: 'Atur Budget', icon: 'pie-chart', route: '/budget' },
-    { label: 'Lainnya', icon: 'ellipsis-horizontal', route: '/more' },
+    { label: 'Tambah Transaksi', icon: IconPlus, route: '/transactions/new' },
+    { label: 'Transfer', icon: IconArrowsExchange, route: '/transactions/new?type=Transfer' },
+    { label: 'Atur Budget', icon: IconChartPie, route: '/budget' },
+    { label: 'Lainnya', icon: IconDots, route: '/more' },
   ] as const;
 
   return (
@@ -180,11 +189,11 @@ export default function BerandaScreen() {
                   onPress={() => setBalanceVisible((v) => !v)}
                   hitSlop={8}
                   accessibilityLabel={balanceVisible ? 'Sembunyikan saldo' : 'Tampilkan saldo'}>
-                  <Ionicons
-                    name={balanceVisible ? 'eye-outline' : 'eye-off-outline'}
-                    size={20}
-                    color={theme.textSecondary}
-                  />
+                  {balanceVisible ? (
+                    <IconEye size={20} color={theme.textSecondary} />
+                  ) : (
+                    <IconEyeOff size={20} color={theme.textSecondary} />
+                  )}
                 </Pressable>
               </View>
               <ThemedText type="title" style={styles.balanceAmount}>
@@ -209,7 +218,7 @@ export default function BerandaScreen() {
             <View style={styles.pillRow}>
               <View style={[styles.pill, { backgroundColor: theme.success }]}>
                 <View style={styles.pillLabelRow}>
-                  <Ionicons name="arrow-down-circle" size={16} color="#ffffff" />
+                  <IconArrowDownCircle size={16} color="#ffffff" />
                   <ThemedText type="small" style={styles.pillText}>
                     Pemasukan
                   </ThemedText>
@@ -220,7 +229,7 @@ export default function BerandaScreen() {
               </View>
               <View style={[styles.pill, { backgroundColor: theme.danger }]}>
                 <View style={styles.pillLabelRow}>
-                  <Ionicons name="arrow-up-circle" size={16} color="#ffffff" />
+                  <IconArrowUpCircle size={16} color="#ffffff" />
                   <ThemedText type="small" style={styles.pillText}>
                     Pengeluaran
                   </ThemedText>
@@ -235,7 +244,7 @@ export default function BerandaScreen() {
               {quickActions.map((action) => (
                 <Pressable key={action.label} style={styles.quickAction} onPress={() => router.push(action.route)}>
                   <View style={[styles.quickActionIcon, { backgroundColor: theme.backgroundElement }]}>
-                    <Ionicons name={action.icon} size={22} color={theme.accent} />
+                    <action.icon size={22} color={theme.accent} />
                   </View>
                   <ThemedText type="small" themeColor="textSecondary" style={styles.quickActionLabel}>
                     {action.label}
@@ -338,7 +347,7 @@ export default function BerandaScreen() {
 
             {data.budget.overBudgetCategories.length > 0 && (
               <View style={[styles.alert, { backgroundColor: theme.danger + '1F', borderColor: theme.danger + '4D' }]}>
-                <Ionicons name="alert-circle" size={20} color={theme.danger} />
+                <IconAlertCircle size={20} color={theme.danger} />
                 <ThemedText type="small" themeColor="textSecondary" style={styles.flexShrink}>
                   <ThemedText type="smallBold" themeColor="danger">
                     {data.budget.overBudgetCategories.length} kategori melebihi anggaran:

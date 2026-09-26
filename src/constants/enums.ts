@@ -69,3 +69,84 @@ export const BOND_TYPES = ['Obligasi Pemerintah', 'Obligasi Korporasi', 'Sukuk R
 export const COUPON_FREQUENCIES = ['Bulanan', 'Triwulanan', 'Semesteran', 'Tahunan'] as const;
 
 export const GOLD_TYPES = ['Fisik/Batangan', 'Digital/Tabungan Emas'] as const;
+
+export const TRANSACTION_TYPES = ['Pemasukan', 'Pengeluaran', 'Transfer Antar Akun'] as const;
+
+export const PAYMENT_METHODS = [
+  'Tunai',
+  'Transfer Bank',
+  'Kartu Debit',
+  'Kartu Kredit',
+  'E-Wallet',
+  'Autodebet',
+  'Qris',
+  'Lainnya',
+] as const;
+
+export const INCOME_CATEGORIES = [
+  'Gaji',
+  'Bonus/THR',
+  'Hasil Investasi',
+  'Hadiah/Pemberian',
+  'Pendapatan Lainnya',
+] as const;
+
+export const EXPENSE_CATEGORIES = [
+  'Makanan & Minuman',
+  'Transportasi',
+  'Tagihan & Utilitas',
+  'Pendidikan',
+  'Kesehatan',
+  'Hiburan',
+  'Belanja',
+  'Cicilan/Utang',
+  'Donasi/Sedekah',
+  'Perawatan Rumah',
+  'Pengeluaran Lainnya',
+] as const;
+
+// Gaya warna kategori — mirror family-finance-app/lib/constants/enums.ts.
+// mutedBg = latar ikon, bright = warna glyph/chart.
+export const CATEGORY_STYLES: Record<string, { mutedBg: string; bright: string }> = {
+  'Makanan & Minuman': { mutedBg: '#3A1620', bright: '#F86673' },
+  Transportasi: { mutedBg: '#072751', bright: '#8AC7FD' },
+  Belanja: { mutedBg: '#222149', bright: '#AC6FF0' },
+  Hiburan: { mutedBg: '#242150', bright: '#A57AE4' },
+  'Tagihan & Utilitas': { mutedBg: '#0B2A4A', bright: '#4FA0F0' },
+  Kesehatan: { mutedBg: '#2E1F26', bright: '#F0554F' },
+  Pendidikan: { mutedBg: '#12332E', bright: '#3ECFAE' },
+  'Perawatan Rumah': { mutedBg: '#1E2938', bright: '#8896A8' },
+  'Cicilan/Utang': { mutedBg: '#3A2A12', bright: '#F0A63E' },
+  'Donasi/Sedekah': { mutedBg: '#3A1A2A', bright: '#F06FA0' },
+};
+
+export const DEFAULT_CATEGORY_STYLE = { mutedBg: '#1E2938', bright: '#8896A8' };
+
+export function getCategoryStyle(categoryName: string) {
+  return CATEGORY_STYLES[categoryName] ?? DEFAULT_CATEGORY_STYLE;
+}
+
+// Latar card (Colors.dark.backgroundElement) — dasar campuran solid untuk tint kategori.
+const SURFACE_BASE = { r: 0x11, g: 0x1a, b: 0x24 };
+
+function hexToRgb(hex: string) {
+  return {
+    r: parseInt(hex.slice(1, 3), 16),
+    g: parseInt(hex.slice(3, 5), 16),
+    b: parseInt(hex.slice(5, 7), 16),
+  };
+}
+
+function toHex(n: number) {
+  return Math.round(n).toString(16).padStart(2, '0');
+}
+
+// Warna solid (bukan rgba) hasil campur `bright` kategori ke latar card — dipakai untuk
+// latar/border tile Tambah Cepat supaya tetap kebaca di atas card.
+export function getCategoryTint(categoryName: string, ratio = 0.16) {
+  const c = hexToRgb(getCategoryStyle(categoryName).bright);
+  const r = c.r * ratio + SURFACE_BASE.r * (1 - ratio);
+  const g = c.g * ratio + SURFACE_BASE.g * (1 - ratio);
+  const b = c.b * ratio + SURFACE_BASE.b * (1 - ratio);
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
