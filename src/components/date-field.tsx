@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { IconCalendar } from '@/components/icons';
-import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -28,13 +27,36 @@ function formatLongDate(value: string) {
 }
 
 // Input tanggal dengan kalender bawaan sistem (Android: dialog, iOS: kalender inline).
-// Di web (tidak didukung paket kalender) jatuh ke input teks YYYY-MM-DD.
+// Di web (paket kalender tidak mendukung) memakai <input type="date"> bawaan browser.
 export function DateField({ label, value, onChange }: DateFieldProps) {
   const theme = useTheme();
   const [iosOpen, setIosOpen] = useState(false);
 
   if (Platform.OS === 'web') {
-    return <TextField label={label} value={value} onChangeText={onChange} placeholder="2026-09-25" autoCapitalize="none" />;
+    return (
+      <View style={styles.container}>
+        <ThemedText type="small" themeColor="textSecondary">
+          {label}
+        </ThemedText>
+        <input
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            colorScheme: 'dark',
+            backgroundColor: theme.backgroundElement,
+            color: theme.text,
+            border: `1px solid ${theme.border}`,
+            borderRadius: Spacing.two,
+            padding: `${Spacing.two + Spacing.half}px ${Spacing.three}px`,
+            fontSize: 16,
+            fontFamily: 'inherit',
+            width: '100%',
+            boxSizing: 'border-box',
+          }}
+        />
+      </View>
+    );
   }
 
   function handlePicked(event: DateTimePickerEvent, selected?: Date) {

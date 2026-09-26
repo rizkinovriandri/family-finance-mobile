@@ -14,6 +14,7 @@ import {
   IconDots,
   IconEye,
   IconEyeOff,
+  IconHome,
   IconPlus,
 } from '@/components/icons';
 import { ThemedText } from '@/components/themed-text';
@@ -153,6 +154,14 @@ export default function BerandaScreen() {
             <ThemedText type="subtitle" numberOfLines={1} style={styles.name}>
               {membership?.display_name}
             </ThemedText>
+            {membership?.family_name ? (
+              <View style={[styles.familyPill, { backgroundColor: `${theme.accent}26` }]}>
+                <IconHome size={12} color={theme.accent} />
+                <ThemedText themeColor="accent" numberOfLines={1} style={styles.familyPillText}>
+                  {membership.family_name}
+                </ThemedText>
+              </View>
+            ) : null}
           </View>
           <Pressable onPress={() => router.push('/more')} hitSlop={8} accessibilityLabel="Buka menu Lainnya">
             {membership?.avatar_url ? (
@@ -389,6 +398,21 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 30,
     fontWeight: 700,
+  },
+  familyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: Spacing.one,
+    marginTop: Spacing.one,
+    borderRadius: Spacing.three,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 2,
+  },
+  familyPillText: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '600',
   },
   avatar: {
     width: 44,

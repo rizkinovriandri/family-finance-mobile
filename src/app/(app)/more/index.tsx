@@ -103,7 +103,7 @@ export default function MoreScreen() {
                 Tentang Aplikasi
               </ThemedText>
               <ThemedText themeColor="textSecondary" style={styles.versionText}>
-                Keuangan Keluarga v{version}
+                Mavyn v{version}
               </ThemedText>
             </View>
           </ThemedView>

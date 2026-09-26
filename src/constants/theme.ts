@@ -36,6 +36,9 @@ export const Colors = {
   },
 } as const;
 
+// Gradient merek (design/mockup splash and login.png): tombol utama layar Masuk/Daftar, kiri ke kanan.
+export const BrandGradient = ['#09B1B3', '#3D5CDB', '#743BDE'] as const;
+
 // Warna seri chart (design/design-system.md, palet kategori) — sama di light/dark.
 export const ChartColors = {
   tabungan: '#2FD6AB',

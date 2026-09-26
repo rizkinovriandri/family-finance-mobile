@@ -3,8 +3,10 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PrimaryButton } from '@/components/primary-button';
-import { TextField } from '@/components/text-field';
+import { AuthField } from '@/components/auth-field';
+import { AuthHeader } from '@/components/auth-header';
+import { GradientButton } from '@/components/gradient-button';
+import { IconLock, IconMail } from '@/components/icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -61,28 +63,23 @@ export default function RegisterScreen() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.form}>
-          <ThemedView style={styles.header}>
-            <ThemedText type="title" style={styles.title}>
-              Daftar
-            </ThemedText>
-            <ThemedText type="default" themeColor="textSecondary">
-              Buat akun untuk mulai mencatat keuangan keluarga.
-            </ThemedText>
-          </ThemedView>
+          <AuthHeader title="Buat akun barumu" subtitle="Mulai catat keuangan keluarga dengan" highlight="lebih rapi." />
 
-          <TextField
-            label="Email"
+          <AuthField
+            Icon={IconMail}
+            placeholder="Email"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
           />
-          <TextField
-            label="Password"
+          <AuthField
+            Icon={IconLock}
+            secure
+            placeholder="Password (min. 6 karakter)"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
             autoComplete="password-new"
           />
 
@@ -92,8 +89,8 @@ export default function RegisterScreen() {
             </ThemedText>
           )}
 
-          <PrimaryButton
-            label={loading ? 'Memproses...' : 'Daftar'}
+          <GradientButton
+            label="Daftar"
             loading={loading}
             disabled={!email || password.length < 6}
             onPress={handleSubmit}
@@ -129,10 +126,6 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     paddingHorizontal: Spacing.four,
     gap: Spacing.three,
-  },
-  header: {
-    gap: Spacing.one,
-    marginBottom: Spacing.two,
   },
   title: {
     fontSize: 32,

@@ -13,6 +13,8 @@ export { default as IconArrowsExchange } from '@tabler/icons-react-native/IconAr
 export { default as IconCalendar } from '@tabler/icons-react-native/IconCalendar';
 export { default as IconCamera } from '@tabler/icons-react-native/IconCamera';
 export { default as IconInfoCircle } from '@tabler/icons-react-native/IconInfoCircle';
+export { default as IconLock } from '@tabler/icons-react-native/IconLock';
+export { default as IconMail } from '@tabler/icons-react-native/IconMail';
 export { default as IconLogout } from '@tabler/icons-react-native/IconLogout';
 export { default as IconPencil } from '@tabler/icons-react-native/IconPencil';
 export { default as IconTrash } from '@tabler/icons-react-native/IconTrash';
