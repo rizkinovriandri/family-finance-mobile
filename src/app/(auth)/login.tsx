@@ -11,6 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { signInWithPassword } from '@/lib/queries/auth';
+import { translateAuthError } from '@/lib/utils/auth-errors';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -25,7 +26,7 @@ export default function LoginScreen() {
     const { error } = await signInWithPassword(email.trim(), password);
 
     if (error) {
-      setError(error.message);
+      setError(translateAuthError(error.message));
       setLoading(false);
       return;
     }

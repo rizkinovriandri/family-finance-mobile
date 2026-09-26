@@ -147,33 +147,40 @@ export default function BerandaScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.header}>
-          <View style={styles.headerText}>
-            <ThemedText type="small" themeColor="textSecondary">
-              {getGreeting()}
-            </ThemedText>
-            <ThemedText type="subtitle" numberOfLines={1} style={styles.name}>
-              {membership?.display_name}
-            </ThemedText>
-            {membership?.family_name ? (
-              <View style={[styles.familyPill, { backgroundColor: `${theme.accent}26` }]}>
-                <IconHome size={12} color={theme.accent} />
-                <ThemedText themeColor="accent" numberOfLines={1} style={styles.familyPillText}>
-                  {membership.family_name}
-                </ThemedText>
-              </View>
-            ) : null}
+          <View style={styles.brand}>
+            <Image source={require('@/assets/images/logo-mark.png')} style={styles.logo} contentFit="contain" />
+            <ThemedText style={styles.brandName}>MAVYN</ThemedText>
           </View>
-          <Pressable onPress={() => router.push('/more')} hitSlop={8} accessibilityLabel="Buka menu Lainnya">
-            {membership?.avatar_url ? (
-              <Image source={{ uri: membership.avatar_url }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: theme.accent }]}>
-                <ThemedText type="smallBold" style={styles.avatarInitials}>
-                  {getInitials(membership?.display_name ?? '')}
-                </ThemedText>
-              </View>
-            )}
-          </Pressable>
+
+          <View style={styles.greetingRow}>
+            <View style={styles.greetingText}>
+              <ThemedText type="small" themeColor="textSecondary">
+                {getGreeting()}
+              </ThemedText>
+              <ThemedText type="subtitle" numberOfLines={1} style={styles.name}>
+                {membership?.display_name}
+              </ThemedText>
+              {membership?.family_name ? (
+                <View style={[styles.familyPill, { backgroundColor: `${theme.accent}26` }]}>
+                  <IconHome size={12} color={theme.accent} />
+                  <ThemedText themeColor="accent" numberOfLines={1} style={styles.familyPillText}>
+                    {membership.family_name}
+                  </ThemedText>
+                </View>
+              ) : null}
+            </View>
+            <Pressable onPress={() => router.push('/more')} hitSlop={8} accessibilityLabel="Buka menu Lainnya">
+              {membership?.avatar_url ? (
+                <Image source={{ uri: membership.avatar_url }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: theme.accent }]}>
+                  <ThemedText type="smallBold" style={styles.avatarInitials}>
+                    {getInitials(membership?.display_name ?? '')}
+                  </ThemedText>
+                </View>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         {error && (
@@ -382,17 +389,35 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
+    paddingTop: Spacing.four,
     gap: Spacing.three,
   },
   header: {
+    gap: Spacing.two,
+  },
+  greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.three,
   },
-  headerText: {
+  greetingText: {
     flex: 1,
+  },
+  brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  logo: {
+    width: 30,
+    height: 28,
+  },
+  brandName: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '700',
+    letterSpacing: 3,
   },
   name: {
     fontSize: 24,

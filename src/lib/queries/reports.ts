@@ -1,4 +1,5 @@
 import { BALANCE_ADJUSTMENT_CATEGORY_NAME, getCategoryStyle } from '@/constants/enums';
+import { fetchAllRows } from '@/lib/queries/paging';
 import { supabase } from '@/lib/supabase';
 import { getCycleRange, getCycleStart, shiftCycle } from '@/lib/utils/date';
 
@@ -39,17 +40,20 @@ export async function getReportSummary(
   const prevCycleStart = shiftCycle(cycleStart, -1);
   const { start: prevStart } = getCycleRange(prevCycleStart, monthStartDay);
 
-  const [{ data: transactions, error }, { data: categories, error: catError }] = await Promise.all([
-    supabase
-      .from('transactions')
-      .select('date, type, amount, category_id, transfer_pair_id')
-      .eq('family_id', familyId)
-      .gte('date', prevStart)
-      .lt('date', end),
+  const [transactions, { data: categories, error: catError }] = await Promise.all([
+    fetchAllRows((from, to) =>
+      supabase
+        .from('transactions')
+        .select('date, type, amount, category_id, transfer_pair_id')
+        .eq('family_id', familyId)
+        .gte('date', prevStart)
+        .lt('date', end)
+        .order('id')
+        .range(from, to)
+    ),
     supabase.from('categories').select('id, name, icon'),
   ]);
 
-  if (error) throw error;
   if (catError) throw catError;
 
   const categoryById = new Map(categories.map((c) => [c.id, c]));

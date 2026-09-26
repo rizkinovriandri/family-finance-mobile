@@ -1,5 +1,6 @@
 import * as Crypto from 'expo-crypto';
 
+import { fetchAllRows } from '@/lib/queries/paging';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
 import type { TransactionFormValues, TransferFormValues } from '@/lib/validation/transaction';
@@ -28,25 +29,28 @@ export type TransactionWithDetails = {
 
 export async function listTransactions(familyId: string): Promise<TransactionWithDetails[]> {
   const [
-    { data: transactions, error },
+    transactions,
     { data: categories, error: catError },
     { data: subcategories, error: subError },
     { data: accounts, error: accError },
     { data: members, error: memError },
   ] = await Promise.all([
-    supabase
-      .from('transactions')
-      .select('*')
-      .eq('family_id', familyId)
-      .order('date', { ascending: false })
-      .order('created_at', { ascending: false }),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('transactions')
+        .select('*')
+        .eq('family_id', familyId)
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(from, to)
+    ),
     supabase.from('categories').select('id, name, icon'),
     supabase.from('subcategories').select('id, name').eq('family_id', familyId),
     supabase.from('accounts').select('id, name').eq('family_id', familyId),
     supabase.from('family_members').select('id, display_name').eq('family_id', familyId),
   ]);
 
-  if (error) throw error;
   if (catError) throw catError;
   if (subError) throw subError;
   if (accError) throw accError;

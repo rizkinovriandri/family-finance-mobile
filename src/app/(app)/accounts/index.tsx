@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BalanceSummaryCard } from '@/components/balance-summary-card';
@@ -15,6 +15,7 @@ import { useFamily } from '@/lib/family-context';
 import { deleteAccount, listAccounts, type AccountWithBalance } from '@/lib/queries/accounts';
 import { listFamilyMembers, updateDefaultAccount } from '@/lib/queries/families';
 import { getPortfolioValueByAccount } from '@/lib/queries/holdings';
+import { confirmDestructive } from '@/lib/utils/confirm';
 import { formatCurrency } from '@/lib/utils/currency';
 import { computeNetWorth } from '@/lib/utils/networth';
 
@@ -94,22 +95,20 @@ export default function AccountsScreen() {
   }
 
   function handleDelete(account: AccountWithBalance) {
-    Alert.alert('Hapus rekening', `Hapus "${account.name}"? Tindakan ini tidak bisa dibatalkan.`, [
-      { text: 'Batal', style: 'cancel' },
-      {
-        text: 'Hapus',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteAccount(account.id);
-            setError(null);
-            load();
-          } catch (err) {
-            setError(err instanceof Error ? err.message : 'Gagal menghapus rekening.');
-          }
-        },
-      },
-    ]);
+    confirmDestructive(
+      'Hapus rekening',
+      `Hapus "${account.name}"? Semua transaksi dan portofolio di rekening ini ikut terhapus permanen dan tidak bisa dikembalikan.`,
+      'Hapus',
+      async () => {
+        try {
+          await deleteAccount(account.id);
+          setError(null);
+          load();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Gagal menghapus rekening.');
+        }
+      }
+    );
   }
 
   return (

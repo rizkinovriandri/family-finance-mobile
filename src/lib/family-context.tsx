@@ -6,35 +6,66 @@ import { getMyFamilyMembership, type FamilyMembership } from '@/lib/queries/fami
 type FamilyContextValue = {
   membership: FamilyMembership | null;
   isLoading: boolean;
+  // Terisi kalau memuat keanggotaan gagal (mis. offline) — layar root menampilkan tombol "Coba lagi"
+  // alih-alih salah mengira pengguna belum punya keluarga.
+  loadError: string | null;
+  // Muat ulang diam-diam (tanpa spinner) setelah data keluarga/profil berubah.
   refresh: () => Promise<void>;
+  // Muat ulang penuh dengan spinner, setelah gagal memuat.
+  retry: () => void;
 };
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
 
 export function FamilyProvider({ children }: PropsWithChildren) {
   const { user } = useAuth();
+  // Pakai id (string), bukan objek `user` — Supabase menerbitkan objek session baru tiap token
+  // di-refresh, dan itu tidak boleh memicu muat ulang keanggotaan (yang menampilkan spinner
+  // dan membongkar seluruh navigator).
+  const userId = user?.id;
   const [membership, setMembership] = useState<FamilyMembership | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   const refresh = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
       setMembership(null);
-      setIsLoading(false);
       return;
     }
-    setIsLoading(true);
-    const result = await getMyFamilyMembership(user.id);
-    setMembership(result);
-    setIsLoading(false);
-  }, [user]);
+    setMembership(await getMyFamilyMembership(userId));
+  }, [userId]);
+
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount/dep-change, not a render-triggered update
-    refresh();
-  }, [refresh]);
+    let cancelled = false;
+    async function load() {
+      if (!userId) {
+        setMembership(null);
+        setLoadError(null);
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const result = await getMyFamilyMembership(userId);
+        if (!cancelled) setMembership(result);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Gagal memuat data keluarga.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, attempt]);
 
   return (
-    <FamilyContext.Provider value={{ membership, isLoading, refresh }}>
+    <FamilyContext.Provider value={{ membership, isLoading, loadError, refresh, retry }}>
       {children}
     </FamilyContext.Provider>
   );

@@ -10,6 +10,7 @@ import { BOND_TYPES, COUPON_FREQUENCIES, FUND_TYPES, GOLD_TYPES } from '@/consta
 import { Spacing } from '@/constants/theme';
 import type { InvestmentCategory } from '@/lib/database.types';
 import type { HoldingFormValues } from '@/lib/queries/holdings';
+import { parseAmount } from '@/lib/utils/currency';
 import { toLocalISODate } from '@/lib/utils/date';
 
 const EMPTY_FORM: HoldingFormValues = {
@@ -32,8 +33,11 @@ type HoldingFormProps = {
   onSubmit: (values: HoldingFormValues) => void;
 };
 
-function numeric(text: string) {
-  return Number(text.replace(/[^0-9.-]/g, '')) || 0;
+// parseAmount paham format Indonesia ("1.500" = seribu lima ratus), tapi angka desimal 3 digit yang
+// tampil apa adanya di form ubah (mis. berat emas "0.125") ambigu — kalau teks belum diubah, pakai nilai aslinya.
+function numeric(text: string, original?: number | null) {
+  if (original !== undefined && original !== null && text === String(original)) return original;
+  return parseAmount(text);
 }
 
 export function HoldingForm({ category, initialValues, submitLabel, loading, error, onSubmit }: HoldingFormProps) {
@@ -41,6 +45,7 @@ export function HoldingForm({ category, initialValues, submitLabel, loading, err
   const [quantityText, setQuantityText] = useState(String(values.quantity ?? 0));
   const [purchasePriceText, setPurchasePriceText] = useState(String(values.purchase_price ?? 0));
   const [currentPriceText, setCurrentPriceText] = useState(String(values.current_price ?? 0));
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [couponRateText, setCouponRateText] = useState(String(values.coupon_rate ?? ''));
 
   function set<K extends keyof HoldingFormValues>(key: K, value: HoldingFormValues[K]) {
@@ -48,12 +53,19 @@ export function HoldingForm({ category, initialValues, submitLabel, loading, err
   }
 
   function handleSubmit() {
+    const quantity = numeric(quantityText, initialValues?.quantity);
+    const purchasePrice = numeric(purchasePriceText, initialValues?.purchase_price);
+    const currentPrice = numeric(currentPriceText, initialValues?.current_price);
+    if (quantity <= 0) return setValidationError('Jumlah harus lebih dari 0.');
+    if (purchasePrice <= 0 || currentPrice <= 0) return setValidationError('Harga beli dan harga terkini harus lebih dari 0.');
+    setValidationError(null);
+
     onSubmit({
       ...values,
-      quantity: numeric(quantityText),
-      purchase_price: numeric(purchasePriceText),
-      current_price: numeric(currentPriceText),
-      coupon_rate: category === 'obligasi_sukuk' ? numeric(couponRateText) : undefined,
+      quantity,
+      purchase_price: purchasePrice,
+      current_price: currentPrice,
+      coupon_rate: category === 'obligasi_sukuk' ? numeric(couponRateText, initialValues?.coupon_rate) : undefined,
     });
   }
 
@@ -181,9 +193,9 @@ export function HoldingForm({ category, initialValues, submitLabel, loading, err
           multiline
         />
 
-        {error && (
+        {(validationError ?? error) && (
           <ThemedText type="small" themeColor="danger">
-            {error}
+            {validationError ?? error}
           </ThemedText>
         )}
 

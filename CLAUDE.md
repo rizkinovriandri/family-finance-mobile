@@ -38,6 +38,8 @@ src/
 - Semua teks UI dalam **Bahasa Indonesia**
 - Query Supabase selalu lewat helper di `src/lib/` (atau modul data terpisah per fitur), jangan panggil client langsung dari dalam JSX komponen tanpa lapisan query
 - Environment variables (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`) untuk kredensial Supabase, jangan pernah hardcode — lihat `.env.example`
+- Query yang bisa lebih dari 1000 baris (transaksi, tren, laporan) wajib lewat `fetchAllRows` (`src/lib/queries/paging.ts`, dengan `.order('id')` di akhir) — PostgREST memotong respons di 1000 baris secara diam-diam
+- `useFamily().refresh()` bersifat diam-diam (tanpa spinner) supaya layar terbuka tidak terbongkar; spinner penuh hanya untuk muat awal/`retry()`. Validasi tanggal `YYYY-MM-DD` jangan pakai `toISOString()` (UTC menggeser hari di WIB)
 - Non-route code (components, hooks, lib, constants) tetap di luar `src/app/`, sesuai aturan Expo Router di `AGENTS.md`
 
 ## 4. Skema Database

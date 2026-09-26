@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AccountForm } from '@/components/account-form';
@@ -10,6 +10,7 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { deleteAccount, getAccount, updateAccount, type AccountFormValues } from '@/lib/queries/accounts';
 import type { Database } from '@/lib/database.types';
+import { confirmDestructive } from '@/lib/utils/confirm';
 
 type AccountRow = Database['public']['Tables']['accounts']['Row'];
 
@@ -39,24 +40,22 @@ export default function EditAccountScreen() {
   }
 
   function handleDelete() {
-    Alert.alert('Hapus rekening', `Hapus "${account?.name ?? 'rekening ini'}"? Tindakan ini tidak bisa dibatalkan.`, [
-      { text: 'Batal', style: 'cancel' },
-      {
-        text: 'Hapus',
-        style: 'destructive',
-        onPress: async () => {
-          setLoading(true);
-          setError(null);
-          try {
-            await deleteAccount(id);
-            router.back();
-          } catch (err) {
-            setError(err instanceof Error ? err.message : 'Gagal menghapus rekening.');
-            setLoading(false);
-          }
-        },
-      },
-    ]);
+    confirmDestructive(
+      'Hapus rekening',
+      `Hapus "${account?.name ?? 'rekening ini'}"? Semua transaksi dan portofolio di rekening ini ikut terhapus permanen dan tidak bisa dikembalikan.`,
+      'Hapus',
+      async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          await deleteAccount(id);
+          router.back();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Gagal menghapus rekening.');
+          setLoading(false);
+        }
+      }
+    );
   }
 
   return (

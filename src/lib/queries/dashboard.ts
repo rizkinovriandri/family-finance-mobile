@@ -1,4 +1,5 @@
 import { BALANCE_ADJUSTMENT_CATEGORY_NAME } from '@/constants/enums';
+import { fetchAllRows } from '@/lib/queries/paging';
 import { supabase } from '@/lib/supabase';
 import { getCycleRange, getCycleStart, shiftCycle, toLocalISODate } from '@/lib/utils/date';
 
@@ -89,16 +90,19 @@ export async function getMonthlyTrend(
   const rangeStart = shiftCycle(currentCycleStart, -(monthsCount - 1));
   const rangeEndExclusive = shiftCycle(currentCycleStart, 1);
 
-  const [txResult, categories] = await Promise.all([
-    supabase
-      .from('transactions')
-      .select('date, type, amount, category_id, transfer_pair_id')
-      .eq('family_id', familyId)
-      .gte('date', toLocalISODate(rangeStart))
-      .lt('date', toLocalISODate(rangeEndExclusive)),
+  const [transactions, categories] = await Promise.all([
+    fetchAllRows((from, to) =>
+      supabase
+        .from('transactions')
+        .select('date, type, amount, category_id, transfer_pair_id')
+        .eq('family_id', familyId)
+        .gte('date', toLocalISODate(rangeStart))
+        .lt('date', toLocalISODate(rangeEndExclusive))
+        .order('id')
+        .range(from, to)
+    ),
     listCategoryNames(),
   ]);
-  if (txResult.error) throw txResult.error;
 
   const adjustmentIds = new Set(
     categories.filter((c) => c.name === BALANCE_ADJUSTMENT_CATEGORY_NAME).map((c) => c.id)
@@ -110,7 +114,7 @@ export async function getMonthlyTrend(
     expense: 0,
   }));
 
-  for (const t of txResult.data) {
+  for (const t of transactions) {
     if (t.transfer_pair_id || adjustmentIds.has(t.category_id)) continue;
     const txCycleStart = getCycleStart(new Date(`${t.date}T00:00:00`), monthStartDay);
     const index =

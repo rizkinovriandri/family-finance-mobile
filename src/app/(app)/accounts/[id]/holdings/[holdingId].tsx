@@ -10,6 +10,7 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { deleteHolding, getHolding, updateHolding, type HoldingFormValues } from '@/lib/queries/holdings';
 import type { Database } from '@/lib/database.types';
+import { confirmDestructive } from '@/lib/utils/confirm';
 
 type HoldingRow = Database['public']['Tables']['investment_holdings']['Row'];
 
@@ -38,7 +39,11 @@ export default function EditHoldingScreen() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
+    confirmDestructive('Hapus holding', `Hapus "${holding?.name ?? 'holding ini'}"? Tindakan ini tidak bisa dibatalkan.`, 'Hapus', deleteNow);
+  }
+
+  async function deleteNow() {
     setLoading(true);
     setError(null);
     try {
