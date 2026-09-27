@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconPicker } from '@/components/icon-picker';
@@ -103,12 +103,12 @@ export default function CategoryFormScreen() {
             <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
               <TextField label="Nama kategori" value={name} onChangeText={setName} autoFocus />
 
-              <ThemedView style={styles.field}>
+              <View style={styles.field}>
                 <ThemedText type="small" themeColor="textSecondary">
                   Ikon
                 </ThemedText>
                 <IconPicker value={icon} onChange={setIcon} />
-              </ThemedView>
+              </View>
 
               {error && (
                 <ThemedText type="small" themeColor="danger">

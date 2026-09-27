@@ -1,9 +1,10 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/category-icon';
+import { IconUser } from '@/components/icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { CategoryPalette, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { TransactionWithDetails } from '@/lib/queries/transactions';
 import { formatCurrency } from '@/lib/utils/currency';
@@ -20,9 +21,14 @@ type TransactionCardProps = {
   onDelete: (transaction: TransactionWithDetails) => void;
 };
 
+// Oranye — dari CategoryPalette (warna seri chart/legend), bukan hex baru, supaya "Anggota" beda dari
+// abu-abu textSecondary lain di baris meta tanpa nambah token warna.
+const MemberColor = CategoryPalette[0];
+
 // Content card baris transaksi — mirror struktur di family-finance-app/components/TransactionsManager.tsx:
 // ikon kategori, deskripsi (fallback nama kategori), jumlah +/- berwarna + tanggal, baris
-// "Kategori - Sub · Akun · Anggota", lalu aksi Ubah/Hapus (transfer tidak bisa diubah).
+// "Kategori - Sub · Akun", lalu baris "Anggota". Nama anggota sengaja dipisah dari baris meta
+// (beda dari web) supaya tidak ikut terpotong numberOfLines saat kategori/akun sudah panjang.
 export function TransactionCard({ transaction: t, showAccount = true, isFirst = true, isLast = true, onEdit, onDelete }: TransactionCardProps) {
   const theme = useTheme();
   const isIncome = t.type === 'Pemasukan';
@@ -30,7 +36,6 @@ export function TransactionCard({ transaction: t, showAccount = true, isFirst = 
   const meta = [
     t.subcategoryName ? `${t.categoryName} - ${t.subcategoryName}` : t.categoryName,
     showAccount && t.accountName,
-    t.memberName,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -55,6 +60,12 @@ export function TransactionCard({ transaction: t, showAccount = true, isFirst = 
             <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.meta}>
               {meta}
             </ThemedText>
+            <View style={styles.memberRow}>
+              <IconUser size={12} color={MemberColor} />
+              <ThemedText type="small" numberOfLines={1} style={[styles.meta, { color: MemberColor }]}>
+                {t.memberName}
+              </ThemedText>
+            </View>
           </View>
           <View style={styles.amountBlock}>
             <ThemedText type="smallBold" themeColor={isIncome ? 'success' : 'danger'} style={styles.tight}>
@@ -125,6 +136,11 @@ const styles = StyleSheet.create({
   titleBlock: {
     flex: 1,
     minWidth: 0,
+    gap: Spacing.half,
+  },
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.half,
   },
   amountBlock: {

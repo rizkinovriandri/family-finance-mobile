@@ -81,6 +81,16 @@ export async function updateHolding(holdingId: string, input: HoldingFormValues)
   if (error) throw error;
 }
 
+// Update current_price saja — dipakai oleh refresh harga otomatis (mis. gold-price.ts), beda dari
+// updateHolding yang mengirim seluruh field form.
+export async function updateHoldingCurrentPrice(holdingId: string, currentPrice: number) {
+  const { error } = await supabase
+    .from('investment_holdings')
+    .update({ current_price: currentPrice, updated_at: new Date().toISOString() })
+    .eq('id', holdingId);
+  if (error) throw error;
+}
+
 export async function deleteHolding(holdingId: string) {
   const { error } = await supabase.from('investment_holdings').delete().eq('id', holdingId);
   if (error) throw error;

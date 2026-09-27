@@ -11,3 +11,7 @@ export function signUpWithPassword(email: string, password: string) {
 export function signOut() {
   return supabase.auth.signOut();
 }
+
+export function updatePassword(newPassword: string) {
+  return supabase.auth.updateUser({ password: newPassword });
+}

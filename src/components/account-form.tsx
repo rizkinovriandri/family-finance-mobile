@@ -2,14 +2,23 @@ import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 
 import { ChipSelect } from '@/components/chip-select';
+import { InvestmentHoldingFields } from '@/components/investment-holding-fields';
 import { PrimaryButton } from '@/components/primary-button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
-import { ACCOUNT_STATUSES, ACCOUNT_TYPES, CURRENCIES } from '@/constants/enums';
+import {
+  ACCOUNT_STATUSES,
+  ACCOUNT_TYPES,
+  CURRENCIES,
+  getInvestmentCategoryForAccountType,
+  isInvestmentAccountType,
+} from '@/constants/enums';
 import { Spacing } from '@/constants/theme';
+import { useHoldingFormState } from '@/hooks/use-holding-form-state';
 import { useFamily } from '@/lib/family-context';
 import type { AccountFormValues } from '@/lib/queries/accounts';
 import { listFamilyMembers } from '@/lib/queries/families';
+import type { HoldingFormValues } from '@/lib/queries/holdings';
 import { parseAmount } from '@/lib/utils/currency';
 
 const EMPTY_FORM: AccountFormValues = {
@@ -41,17 +50,32 @@ type AccountFormProps = {
   submitLabel: string;
   loading?: boolean;
   error?: string | null;
-  onSubmit: (values: AccountFormValues) => void;
+  // holding cuma terisi saat tambah akun investasi baru (lihat showHoldingFields) — akun & holding
+  // pertamanya divalidasi bareng di sini, tapi disimpan oleh pemanggil (butuh id akun yang baru dibuat).
+  onSubmit: (values: AccountFormValues, holding?: HoldingFormValues) => void;
 };
 
+// Akun investasi (Saham/Reksadana/Obligasi/Emas) nilainya dihitung dari holding di Portofolio, bukan
+// dari Saldo Awal + transaksi kas seperti akun biasa — jadi saat MENAMBAH akun baru bertipe investasi,
+// form ini mengganti field generik (Institusi, Saldo awal, Pemilik, Mata uang, Status, Catatan) dengan
+// field holding pertamanya sekalian (nama instrumen, berat/jumlah, harga beli, dst — lihat
+// InvestmentHoldingFields), supaya user tidak perlu buka Portofolio secara terpisah cuma untuk holding
+// pertama. Mirror family-finance-app/components/AccountsManager.tsx. Saat MENGUBAH akun investasi yang
+// sudah ada, form tetap generik seperti biasa — holding-nya diubah lewat Portofolio.
 export function AccountForm({ initialValues, submitLabel, loading, error, onSubmit }: AccountFormProps) {
   const { membership } = useFamily();
+  const isNew = !initialValues;
   const [values, setValues] = useState<AccountFormValues>(() => {
     const picked = pickFormValues(initialValues);
     return initialValues ? picked : { ...picked, owner_member_id: membership?.id ?? null };
   });
   const [openingBalanceText, setOpeningBalanceText] = useState(String(values.opening_balance ?? 0));
   const [members, setMembers] = useState<{ id: string; display_name: string }[]>([]);
+  const [holdingError, setHoldingError] = useState<string | null>(null);
+
+  const investmentCategory = getInvestmentCategoryForAccountType(values.account_type);
+  const showHoldingFields = isNew && investmentCategory !== null;
+  const holdingState = useHoldingFormState(investmentCategory ?? 'saham');
 
   useEffect(() => {
     if (!membership) return;
@@ -65,6 +89,21 @@ export function AccountForm({ initialValues, submitLabel, loading, error, onSubm
   }
 
   function handleSubmit() {
+    if (showHoldingFields) {
+      if (!holdingState.values.name.trim()) {
+        setHoldingError('Nama instrumen wajib diisi.');
+        return;
+      }
+      const result = holdingState.getSubmitValues();
+      if (!result.ok) {
+        setHoldingError(result.error);
+        return;
+      }
+      setHoldingError(null);
+      onSubmit({ ...values, opening_balance: 0 }, result.values);
+      return;
+    }
+    setHoldingError(null);
     onSubmit({ ...values, opening_balance: parseAmount(openingBalanceText) });
   }
 
@@ -77,7 +116,7 @@ export function AccountForm({ initialValues, submitLabel, loading, error, onSubm
           label="Nama rekening"
           value={values.name}
           onChangeText={(text) => set('name', text)}
-          placeholder="mis. BNI Tabungan"
+          placeholder={showHoldingFields ? 'mis. RDN Mirae Asset, Bibit' : 'mis. BNI Tabungan'}
         />
 
         <ChipSelect
@@ -87,55 +126,75 @@ export function AccountForm({ initialValues, submitLabel, loading, error, onSubm
           onChange={(v) => set('account_type', v)}
         />
 
-        <ChipSelect
-          label="Mata uang"
-          options={CURRENCIES}
-          value={(values.currency ?? 'IDR') as (typeof CURRENCIES)[number]}
-          onChange={(v) => set('currency', v)}
-        />
-
-        <TextField
-          label="Institusi (opsional)"
-          value={values.institution ?? ''}
-          onChangeText={(text) => set('institution', text)}
-          placeholder="mis. Bank BNI"
-        />
-
-        <TextField
-          label="Saldo awal"
-          value={openingBalanceText}
-          onChangeText={setOpeningBalanceText}
-          keyboardType="numeric"
-          placeholder="0"
-        />
-
-        {members.length > 0 && (
-          <ChipSelect
-            label="Pemilik"
-            options={members.map((m) => m.display_name)}
-            value={members.find((m) => m.id === values.owner_member_id)?.display_name ?? ''}
-            onChange={(name) => set('owner_member_id', members.find((m) => m.display_name === name)?.id ?? null)}
-          />
+        {isNew && isInvestmentAccountType(values.account_type) && !investmentCategory && (
+          <ThemedText type="small" themeColor="textSecondary">
+            Jenis akun ini belum punya form holding khusus — buat akunnya dulu, isi detail investasinya
+            nanti lewat halaman Portofolio.
+          </ThemedText>
         )}
 
-        <ChipSelect
-          label="Status"
-          options={ACCOUNT_STATUSES}
-          value={(values.status ?? 'Aktif') as (typeof ACCOUNT_STATUSES)[number]}
-          onChange={(v) => set('status', v)}
-        />
+        {showHoldingFields && investmentCategory && (
+          <>
+            <ThemedText type="small" themeColor="textSecondary">
+              Isi holding pertama untuk akun ini sekalian — bisa tambah lagi nanti di Portofolio.
+            </ThemedText>
+            <InvestmentHoldingFields category={investmentCategory} state={holdingState} />
+          </>
+        )}
 
-        <TextField
-          label="Catatan (opsional)"
-          value={values.notes ?? ''}
-          onChangeText={(text) => set('notes', text)}
-          placeholder="Catatan tambahan..."
-          multiline
-        />
+        {!showHoldingFields && (
+          <>
+            <TextField
+              label="Institusi (opsional)"
+              value={values.institution ?? ''}
+              onChangeText={(text) => set('institution', text)}
+              placeholder="mis. Bank BNI"
+            />
 
-        {error && (
+            <TextField
+              label="Saldo awal"
+              value={openingBalanceText}
+              onChangeText={setOpeningBalanceText}
+              keyboardType="numeric"
+              placeholder="0"
+            />
+
+            {members.length > 0 && (
+              <ChipSelect
+                label="Pemilik"
+                options={members.map((m) => m.display_name)}
+                value={members.find((m) => m.id === values.owner_member_id)?.display_name ?? ''}
+                onChange={(name) => set('owner_member_id', members.find((m) => m.display_name === name)?.id ?? null)}
+              />
+            )}
+
+            <ChipSelect
+              label="Mata uang"
+              options={CURRENCIES}
+              value={(values.currency ?? 'IDR') as (typeof CURRENCIES)[number]}
+              onChange={(v) => set('currency', v)}
+            />
+
+            <ChipSelect
+              label="Status"
+              options={ACCOUNT_STATUSES}
+              value={(values.status ?? 'Aktif') as (typeof ACCOUNT_STATUSES)[number]}
+              onChange={(v) => set('status', v)}
+            />
+
+            <TextField
+              label="Catatan (opsional)"
+              value={values.notes ?? ''}
+              onChangeText={(text) => set('notes', text)}
+              placeholder="Catatan tambahan..."
+              multiline
+            />
+          </>
+        )}
+
+        {(holdingError ?? error) && (
           <ThemedText type="small" themeColor="danger">
-            {error}
+            {holdingError ?? error}
           </ThemedText>
         )}
 

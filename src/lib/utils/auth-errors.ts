@@ -4,6 +4,7 @@ const TRANSLATIONS: [RegExp, string][] = [
   [/email not confirmed/i, 'Email belum dikonfirmasi. Cek kotak masuk emailmu.'],
   [/user already registered|already been registered/i, 'Email ini sudah terdaftar. Silakan masuk.'],
   [/password should be at least/i, 'Password minimal 6 karakter.'],
+  [/different from the old password/i, 'Password baru harus berbeda dari password lama.'],
   [/unable to validate email|invalid format|invalid email/i, 'Format email tidak valid.'],
   [/rate limit|too many requests|after \d+ seconds/i, 'Terlalu banyak percobaan. Coba lagi beberapa saat lagi.'],
   [/network request failed|failed to fetch|network error/i, 'Tidak ada koneksi internet. Periksa jaringanmu.'],

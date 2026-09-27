@@ -22,6 +22,7 @@ export { default as IconUser } from '@tabler/icons-react-native/IconUser';
 export { default as IconChartBar } from '@tabler/icons-react-native/IconChartBar';
 export { default as IconChartLine } from '@tabler/icons-react-native/IconChartLine';
 export { default as IconChartPie } from '@tabler/icons-react-native/IconChartPie';
+export { default as IconChevronDown } from '@tabler/icons-react-native/IconChevronDown';
 export { default as IconChevronLeft } from '@tabler/icons-react-native/IconChevronLeft';
 export { default as IconChevronRight } from '@tabler/icons-react-native/IconChevronRight';
 export { default as IconCircleMinus } from '@tabler/icons-react-native/IconCircleMinus';
@@ -33,6 +34,7 @@ export { default as IconHome } from '@tabler/icons-react-native/IconHome';
 export { default as IconLayoutGrid } from '@tabler/icons-react-native/IconLayoutGrid';
 export { default as IconListDetails } from '@tabler/icons-react-native/IconListDetails';
 export { default as IconPlus } from '@tabler/icons-react-native/IconPlus';
+export { default as IconSettings } from '@tabler/icons-react-native/IconSettings';
 export { default as IconWallet } from '@tabler/icons-react-native/IconWallet';
 
 // Ikon kategori transaksi (dipetakan di src/constants/category-icons.ts)

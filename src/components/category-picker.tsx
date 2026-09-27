@@ -2,7 +2,6 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/category-icon';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { Category } from '@/lib/queries/categories';
@@ -20,7 +19,7 @@ export function CategoryPicker({ label, categories, value, onChange, error }: Ca
   const theme = useTheme();
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
       <ThemedText type="small" themeColor="textSecondary">
         {label}
       </ThemedText>
@@ -56,7 +55,7 @@ export function CategoryPicker({ label, categories, value, onChange, error }: Ca
           {error}
         </ThemedText>
       )}
-    </ThemedView>
+    </View>
   );
 }
 

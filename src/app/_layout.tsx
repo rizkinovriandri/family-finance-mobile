@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { FamilyProvider, useFamily } from '@/lib/family-context';
+import { PreferencesProvider } from '@/lib/preferences-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -60,7 +61,9 @@ export default function RootLayout() {
       <AnimatedSplashOverlay />
       <AuthProvider>
         <FamilyProvider>
-          <RootNavigator />
+          <PreferencesProvider>
+            <RootNavigator />
+          </PreferencesProvider>
         </FamilyProvider>
       </AuthProvider>
     </ThemeProvider>

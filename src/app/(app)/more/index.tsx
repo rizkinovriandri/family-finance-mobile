@@ -11,6 +11,7 @@ import {
   IconFolder,
   IconInfoCircle,
   IconLogout,
+  IconSettings,
   IconUser,
   type TablerIcon,
 } from '@/components/icons';
@@ -30,6 +31,7 @@ const MENU_ITEMS: MenuItem[] = [
   { label: 'Edit Profil', icon: IconUser, href: '/more/profile' },
   { label: 'Kelola Kategori', icon: IconFolder, href: '/more/categories' },
   { label: 'Tanggal Awal', icon: IconCalendar, href: '/more/start-date' },
+  { label: 'Pengaturan', icon: IconSettings, href: '/more/settings' },
 ];
 
 // Layar "Lainnya" — mirror halaman "Profil & Pengaturan" family-finance-app: kartu profil, kode

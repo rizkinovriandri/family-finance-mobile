@@ -5,6 +5,7 @@ import { CategoryPicker } from '@/components/category-picker';
 import { ChipPicker } from '@/components/chip-picker';
 import { CurrencyField } from '@/components/currency-field';
 import { DateField } from '@/components/date-field';
+import { DropdownField } from '@/components/dropdown-field';
 import { PrimaryButton } from '@/components/primary-button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
@@ -175,14 +176,14 @@ export function TransactionForm({
 
         {txType === 'Transfer' ? (
           <>
-            <ChipPicker
+            <DropdownField
               label="Dari akun"
               options={accountOptions}
               value={fromAccountId}
               onChange={setFromAccountId}
               error={fieldErrors.from_account_id}
             />
-            <ChipPicker
+            <DropdownField
               label="Ke akun"
               options={accountOptions}
               value={toAccountId}
@@ -209,7 +210,7 @@ export function TransactionForm({
               />
             )}
 
-            <ChipPicker
+            <DropdownField
               label="Akun"
               options={accountOptions}
               value={accountId}

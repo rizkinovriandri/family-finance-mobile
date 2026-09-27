@@ -1,11 +1,12 @@
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { BackHeader } from '@/components/back-header';
+import { IconChevronRight, IconLock } from '@/components/icons';
 import { PrimaryButton } from '@/components/primary-button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
@@ -146,6 +147,18 @@ export default function ProfileScreen() {
               </View>
             </ThemedView>
 
+            <Pressable
+              onPress={() => router.push('/more/change-password')}
+              style={[styles.card, styles.securityRow, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}>
+              <View style={[styles.menuIcon, { backgroundColor: `${theme.accent}26` }]}>
+                <IconLock size={18} color={theme.accent} />
+              </View>
+              <ThemedText type="smallBold" style={styles.securityLabel}>
+                Ubah Kata Sandi
+              </ThemedText>
+              <IconChevronRight size={16} color={theme.textSecondary} />
+            </Pressable>
+
             {error && (
               <ThemedText type="small" themeColor="danger">
                 {error}
@@ -196,6 +209,21 @@ const styles = StyleSheet.create({
   },
   fieldGroup: {
     gap: Spacing.one,
+  },
+  securityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  securityLabel: {
+    flex: 1,
+  },
+  menuIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   helper: {
     fontSize: 12,

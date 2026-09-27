@@ -1,7 +1,6 @@
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -23,7 +22,7 @@ export function CurrencyField({ label, value, onChange, error }: CurrencyFieldPr
   const theme = useTheme();
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
       <ThemedText type="small" themeColor="textSecondary">
         {label}
       </ThemedText>
@@ -47,7 +46,7 @@ export function CurrencyField({ label, value, onChange, error }: CurrencyFieldPr
           {error}
         </ThemedText>
       )}
-    </ThemedView>
+    </View>
   );
 }
 

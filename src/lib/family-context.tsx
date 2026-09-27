@@ -1,7 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useState, type PropsWithChildren } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type PropsWithChildren } from 'react';
+import { AppState } from 'react-native';
 
 import { useAuth } from '@/lib/auth-context';
 import { getMyFamilyMembership, type FamilyMembership } from '@/lib/queries/families';
+import { supabase } from '@/lib/supabase';
+
+// Sama seperti jeda penggabungan event di use-realtime-tick.ts.
+const DEBOUNCE_MS = 300;
 
 type FamilyContextValue = {
   membership: FamilyMembership | null;
@@ -63,6 +68,44 @@ export function FamilyProvider({ children }: PropsWithChildren) {
       cancelled = true;
     };
   }, [userId, attempt]);
+
+  // Realtime sync untuk nama keluarga & profil anggota (termasuk yang diubah dari perangkat/anggota
+  // lain) — beda dari useRealtimeTick karena "families" difilter lewat `id`, bukan `family_id`.
+  const familyId = membership?.family_id;
+  const refreshRef = useRef(refresh);
+  useEffect(() => {
+    refreshRef.current = refresh;
+  });
+
+  useEffect(() => {
+    if (!familyId) return;
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => refreshRef.current(), DEBOUNCE_MS);
+    };
+
+    const channel = supabase
+      .channel(`realtime-family-${familyId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'families', filter: `id=eq.${familyId}` }, bump)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'family_members', filter: `family_id=eq.${familyId}` },
+        bump
+      )
+      .subscribe();
+
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') bump();
+    });
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      appStateSubscription.remove();
+      supabase.removeChannel(channel);
+    };
+  }, [familyId]);
 
   return (
     <FamilyContext.Provider value={{ membership, isLoading, loadError, refresh, retry }}>

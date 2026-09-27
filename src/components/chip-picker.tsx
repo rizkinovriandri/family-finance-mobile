@@ -1,7 +1,6 @@
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -21,7 +20,7 @@ export function ChipPicker({ label, options, value, onChange, error }: ChipPicke
   const theme = useTheme();
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
       {label && (
         <ThemedText type="small" themeColor="textSecondary">
           {label}
@@ -56,7 +55,7 @@ export function ChipPicker({ label, options, value, onChange, error }: ChipPicke
           {error}
         </ThemedText>
       )}
-    </ThemedView>
+    </View>
   );
 }
 

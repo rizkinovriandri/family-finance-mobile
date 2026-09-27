@@ -9,18 +9,26 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useFamily } from '@/lib/family-context';
 import { createAccount, type AccountFormValues } from '@/lib/queries/accounts';
+import { createHolding, type HoldingFormValues } from '@/lib/queries/holdings';
 
 export default function NewAccountScreen() {
   const { membership } = useFamily();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(values: AccountFormValues) {
+  async function handleSubmit(values: AccountFormValues, holding?: HoldingFormValues) {
     if (!membership) return;
     setLoading(true);
     setError(null);
     try {
-      await createAccount(membership.family_id, values);
+      const account = await createAccount(membership.family_id, values);
+      if (holding) {
+        await createHolding(membership.family_id, account.id, holding);
+        // Akun + holding pertama sudah tersimpan — arahkan ke Portofolio supaya langsung terlihat,
+        // beda dari akun biasa yang cukup kembali ke daftar Akun.
+        router.replace({ pathname: '/accounts/[id]/holdings', params: { id: account.id } });
+        return;
+      }
       router.back();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal menyimpan rekening.');

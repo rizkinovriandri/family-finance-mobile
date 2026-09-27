@@ -24,6 +24,7 @@ import { CategoryPalette, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useRealtimeTick } from '@/hooks/use-realtime-tick';
 import { useTheme } from '@/hooks/use-theme';
 import { useFamily } from '@/lib/family-context';
+import { usePreferences } from '@/lib/preferences-context';
 import { listAccounts, type AccountWithBalance } from '@/lib/queries/accounts';
 import {
   getBudgetOverview,
@@ -60,11 +61,21 @@ function getGreeting() {
 export default function BerandaScreen() {
   const theme = useTheme();
   const { membership } = useFamily();
+  const { defaultBalanceVisible } = usePreferences();
   const reloadTick = useRealtimeTick(['transactions', 'accounts', 'budgets'], membership?.family_id);
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [balanceVisible, setBalanceVisible] = useState(true);
+  const [balanceVisible, setBalanceVisible] = useState(defaultBalanceVisible);
+  // Ikuti default dari Lainnya -> Pengaturan setiap kali NILAINYA berubah (dibaca dari AsyncStorage
+  // saat app start, atau diubah langsung di layar Pengaturan) — pola "adjust state saat render"
+  // (bukan setState di useEffect), supaya toggle manual pengguna (ikon mata) selama sesi berjalan
+  // tidak tertimpa balik di render lain.
+  const [appliedDefaultBalanceVisible, setAppliedDefaultBalanceVisible] = useState(defaultBalanceVisible);
+  if (defaultBalanceVisible !== appliedDefaultBalanceVisible) {
+    setAppliedDefaultBalanceVisible(defaultBalanceVisible);
+    setBalanceVisible(defaultBalanceVisible);
+  }
 
   const load = useCallback(async () => {
     if (!membership) return;

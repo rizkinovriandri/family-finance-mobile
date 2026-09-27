@@ -10,8 +10,10 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useRealtimeTick } from '@/hooks/use-realtime-tick';
 import { useTheme } from '@/hooks/use-theme';
 import { getAccount } from '@/lib/queries/accounts';
-import { listHoldingsForAccount, type Holding } from '@/lib/queries/holdings';
+import { deleteHolding, listHoldingsForAccount, type Holding } from '@/lib/queries/holdings';
+import { confirmDestructive } from '@/lib/utils/confirm';
 import { formatCurrency } from '@/lib/utils/currency';
+import { refreshGoldPrices } from '@/lib/utils/refresh-gold-prices';
 import type { Database } from '@/lib/database.types';
 
 // Saham dicatat dalam lembar (sama dengan web); 1 lot = 100 lembar.
@@ -22,8 +24,13 @@ function formatLots(shares: number) {
   return `${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(lots)} lot`;
 }
 
-// Kolom: lot · harga rata-rata beli · harga saat ini · profit/loss · profit/loss %, masing-masing dengan judul kecil di atasnya.
-function StockCell({
+function formatGrams(grams: number) {
+  return `${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 3 }).format(grams)} gr`;
+}
+
+// Kolom rincian holding (Saham & Emas): jumlah · harga beli · harga terkini · profit/loss ·
+// profit/loss %, masing-masing dengan judul kecil di atasnya.
+function DetailCell({
   label,
   text,
   color,
@@ -71,10 +78,29 @@ export default function HoldingsScreen() {
       ]);
       setAccount(accountResult);
       setHoldings(holdingsResult);
+      // Diam-diam di background — kegagalan (API harga emas down/berubah format) tidak boleh
+      // mengganggu tampilan Portofolio, harga lama (tersimpan) tetap dipakai.
+      refreshGoldPrices(holdingsResult).catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal memuat portofolio.');
     }
   }, [id]);
+
+  function handleEdit(h: Holding) {
+    router.push({ pathname: '/accounts/[id]/holdings/[holdingId]', params: { id, holdingId: h.id } });
+  }
+
+  function handleDelete(h: Holding) {
+    confirmDestructive('Hapus holding', `Hapus "${h.name}"? Tindakan ini tidak bisa dibatalkan.`, 'Hapus', async () => {
+      try {
+        await deleteHolding(h.id);
+        setHoldings((prev) => prev?.filter((x) => x.id !== h.id) ?? prev);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Gagal menghapus holding.');
+      }
+    });
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -162,12 +188,8 @@ export default function HoldingsScreen() {
           {!!holdings?.length && (
           <ThemedView type="backgroundElement" style={[styles.group, { borderColor: theme.border }]}>
           {holdings.map((h, index) => (
-            <Pressable
-              key={h.id}
-              onPress={() =>
-                router.push({ pathname: '/accounts/[id]/holdings/[holdingId]', params: { id, holdingId: h.id } })
-              }>
               <ThemedView
+                key={h.id}
                 type="backgroundElement"
                 style={[styles.card, index > 0 && { borderTopWidth: 1, borderTopColor: theme.border }]}>
                 <View style={styles.cardTop}>
@@ -176,18 +198,30 @@ export default function HoldingsScreen() {
                   </ThemedText>
                   <ThemedText type="smallBold">{formatCurrency(h.currentValue, currency)}</ThemedText>
                 </View>
-                {h.category === 'saham' ? (
+                {h.category === 'saham' || h.category === 'emas' ? (
                   <View style={styles.stockRow}>
-                    <StockCell label="Lot" text={formatLots(h.quantity)} weight={0.8} />
-                    <StockCell label="Rata-rata" text={formatCurrency(h.purchase_price, currency)} weight={1.2} />
-                    <StockCell label="Harga" text={formatCurrency(h.current_price, currency)} weight={1.2} />
-                    <StockCell
+                    <DetailCell
+                      label={h.category === 'saham' ? 'Lot' : 'Berat'}
+                      text={h.category === 'saham' ? formatLots(h.quantity) : formatGrams(h.quantity)}
+                      weight={0.8}
+                    />
+                    <DetailCell
+                      label={h.category === 'saham' ? 'Rata-rata' : 'Harga Beli'}
+                      text={formatCurrency(h.purchase_price, currency)}
+                      weight={1.2}
+                    />
+                    <DetailCell
+                      label={h.category === 'saham' ? 'Harga' : 'Harga Kini'}
+                      text={formatCurrency(h.current_price, currency)}
+                      weight={1.2}
+                    />
+                    <DetailCell
                       label="P/L"
                       text={`${h.gainLoss >= 0 ? '+' : ''}${formatCurrency(h.gainLoss, currency)}`}
                       color={h.gainLoss >= 0 ? 'success' : 'danger'}
                       weight={1.5}
                     />
-                    <StockCell
+                    <DetailCell
                       label="P/L %"
                       text={`${h.gainLoss >= 0 ? '+' : ''}${h.gainLossPercentage.toFixed(1)}%`}
                       color={h.gainLoss >= 0 ? 'success' : 'danger'}
@@ -206,8 +240,20 @@ export default function HoldingsScreen() {
                     </ThemedText>
                   </View>
                 )}
+
+                <View style={styles.actions}>
+                  <Pressable onPress={() => handleEdit(h)} hitSlop={8}>
+                    <ThemedText type="small" themeColor="accent" style={styles.actionText}>
+                      Ubah
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable onPress={() => handleDelete(h)} hitSlop={8}>
+                    <ThemedText type="small" themeColor="danger" style={styles.actionText}>
+                      Hapus
+                    </ThemedText>
+                  </Pressable>
+                </View>
               </ThemedView>
-            </Pressable>
           ))}
           </ThemedView>
           )}
@@ -295,5 +341,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: Spacing.three,
+    marginTop: Spacing.one,
+  },
+  actionText: {
+    fontSize: 12,
+    lineHeight: 15,
   },
 });
