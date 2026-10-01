@@ -3,54 +3,36 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { TransactionForm, type TxType } from '@/components/transaction-form';
+import { RecurringTransactionForm } from '@/components/recurring-transaction-form';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTransactionLookups } from '@/hooks/use-transaction-lookups';
 import { useFamily } from '@/lib/family-context';
 import { getRecurringTransaction, type RecurringTransactionRow } from '@/lib/queries/recurring-transactions';
-import { getTransaction, type TransactionRow } from '@/lib/queries/transactions';
 
-type TransactionFormScreenProps = {
-  // Diisi saat mengubah transaksi; kosong = tambah baru.
-  transactionId?: string;
-  initialType?: TxType;
-  initialCategoryId?: string;
-  // Akun yang dipilih awal (mis. saat menambah dari Riwayat per akun); default: akun default anggota.
-  initialAccountId?: string;
-  // Diisi saat "Catat" dari reminder Tagihan Jatuh Tempo di Beranda — form terprefill dari
-  // template ini, dan jadwalnya dimajukan otomatis setelah transaksi berhasil disimpan.
+type RecurringTransactionFormScreenProps = {
+  // Diisi saat mengubah; kosong = tambah baru.
   recurringId?: string;
 };
 
-// Layar penuh berisi form tambah/ubah transaksi — dipakai oleh transactions/new dan transactions/[id].
-export function TransactionFormScreen({
-  transactionId,
-  initialType,
-  initialCategoryId,
-  initialAccountId,
-  recurringId,
-}: TransactionFormScreenProps) {
+// Layar penuh berisi form tambah/ubah transaksi berulang — dipakai oleh recurring/new dan recurring/[id].
+export function RecurringTransactionFormScreen({ recurringId }: RecurringTransactionFormScreenProps) {
   const { membership } = useFamily();
   const lookups = useTransactionLookups();
-  const [editing, setEditing] = useState<TransactionRow | null>(null);
-  const [prefillRecurring, setPrefillRecurring] = useState<RecurringTransactionRow | null>(null);
-  const [editingLoading, setEditingLoading] = useState(Boolean(transactionId) || Boolean(recurringId));
+  const [editing, setEditing] = useState<RecurringTransactionRow | null>(null);
+  const [editingLoading, setEditingLoading] = useState(Boolean(recurringId));
   const [editingError, setEditingError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!transactionId && !recurringId) return;
+    if (!recurringId) return;
     let cancelled = false;
-    const load = transactionId ? getTransaction(transactionId) : getRecurringTransaction(recurringId!);
-    load
+    getRecurringTransaction(recurringId)
       .then((row) => {
-        if (cancelled) return;
-        if (transactionId) setEditing(row as TransactionRow);
-        else setPrefillRecurring(row as RecurringTransactionRow);
+        if (!cancelled) setEditing(row);
       })
       .catch((err) => {
-        if (!cancelled) setEditingError(err instanceof Error ? err.message : 'Gagal memuat transaksi.');
+        if (!cancelled) setEditingError(err instanceof Error ? err.message : 'Gagal memuat transaksi berulang.');
       })
       .finally(() => {
         if (!cancelled) setEditingLoading(false);
@@ -58,7 +40,7 @@ export function TransactionFormScreen({
     return () => {
       cancelled = true;
     };
-  }, [transactionId, recurringId]);
+  }, [recurringId]);
 
   const ready = membership && !lookups.loading && !editingLoading;
   const error = lookups.error ?? editingError;
@@ -72,7 +54,7 @@ export function TransactionFormScreen({
               Batal
             </ThemedText>
           </Pressable>
-          <ThemedText type="smallBold">{transactionId ? 'Ubah Transaksi' : 'Tambah Transaksi'}</ThemedText>
+          <ThemedText type="smallBold">{recurringId ? 'Ubah Transaksi Berulang' : 'Transaksi Berulang Baru'}</ThemedText>
           <ThemedView style={styles.headerSpacer} />
         </ThemedView>
 
@@ -84,21 +66,18 @@ export function TransactionFormScreen({
           <ActivityIndicator style={styles.loading} />
         ) : lookups.accounts.length === 0 ? (
           <ThemedText type="small" themeColor="textSecondary">
-            Tambah akun dulu sebelum mencatat transaksi.
+            Tambah akun dulu sebelum membuat transaksi berulang.
           </ThemedText>
         ) : (
-          <TransactionForm
+          <RecurringTransactionForm
             familyId={membership.family_id}
             accounts={lookups.accounts}
             members={lookups.members}
             categories={lookups.categories}
             subcategories={lookups.subcategories}
             defaultMemberId={membership.id}
-            defaultAccountId={initialAccountId ?? membership.default_account_id ?? undefined}
+            defaultAccountId={membership.default_account_id ?? undefined}
             editing={editing}
-            initialType={initialType}
-            initialCategoryId={initialCategoryId}
-            prefillRecurring={prefillRecurring}
             onSaved={() => router.back()}
           />
         )}

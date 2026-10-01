@@ -92,9 +92,13 @@ export default function BudgetScreen() {
   );
 
   // Kategori ditampilkan sebagai satu baris induk (ringkasan); rincian tiap anggaran (level kategori
-  // "Kategori Utama" + tiap sub kategori) baru muncul saat di-expand. Kalau ada anggaran level
-  // kategori, ringkasan pakai nilai itu langsung (realisasinya sudah roll-up semua sub kategori —
-  // lihat view budget_realizations); kalau tidak, dijumlah dari semua anggaran sub kategorinya.
+  // "Kategori Utama" + tiap sub kategori) baru muncul saat di-expand. Target ringkasan selalu
+  // dijumlah dari semua anggaran kategori itu (level kategori + tiap sub kategori) — tidak ada
+  // double-count di sisi target karena itu cuma angka yang di-set terpisah per anggaran. Realisasi
+  // beda ceritanya: kalau ada anggaran level kategori, realisasinya sudah roll-up SEMUA transaksi
+  // kategori itu (lihat view budget_realizations, subcategory_id null = match semua sub kategori),
+  // jadi tetap pakai nilai itu saja — dijumlah dengan realisasi sub kategori akan menghitung dua
+  // kali transaksi yang sudah match sub kategori tertentu.
   const categoryGroups = useMemo(() => {
     const byCategory = new Map<string, BudgetWithRealization[]>();
     for (const b of budgets ?? []) {
@@ -106,9 +110,7 @@ export default function BudgetScreen() {
     return Array.from(byCategory.entries())
       .map(([categoryId, entries]) => {
         const categoryLevel = entries.find((e) => e.subcategoryId === null);
-        const summaryTarget = categoryLevel
-          ? categoryLevel.targetAmount
-          : entries.reduce((sum, e) => sum + e.targetAmount, 0);
+        const summaryTarget = entries.reduce((sum, e) => sum + e.targetAmount, 0);
         const summaryRealisasi = categoryLevel
           ? categoryLevel.realisasi
           : entries.reduce((sum, e) => sum + e.realisasi, 0);
@@ -373,18 +375,26 @@ export default function BudgetScreen() {
                                   height={4}
                                 />
                                 <View style={styles.entryActions}>
-                                  <Pressable
-                                    onPress={() => router.push({ pathname: '/budget/[id]', params: { id: b.id } })}
-                                    hitSlop={8}>
-                                    <ThemedText type="small" themeColor="accent">
-                                      Ubah
-                                    </ThemedText>
-                                  </Pressable>
-                                  <Pressable onPress={() => handleDelete(b.id)} hitSlop={8}>
-                                    <ThemedText type="small" themeColor="danger">
-                                      Hapus
-                                    </ThemedText>
-                                  </Pressable>
+                                  <View style={styles.entryActionButtons}>
+                                    <Pressable
+                                      onPress={() => router.push({ pathname: '/budget/[id]', params: { id: b.id } })}
+                                      hitSlop={8}>
+                                      <ThemedText type="small" themeColor="accent">
+                                        Ubah
+                                      </ThemedText>
+                                    </Pressable>
+                                    <Pressable onPress={() => handleDelete(b.id)} hitSlop={8}>
+                                      <ThemedText type="small" themeColor="danger">
+                                        Hapus
+                                      </ThemedText>
+                                    </Pressable>
+                                  </View>
+                                  <ThemedText
+                                    style={styles.remainingText}
+                                    themeColor={b.status === 'Melebihi' ? 'danger' : 'success'}>
+                                    {b.status === 'Melebihi' ? 'Lebih ' : 'Sisa '}
+                                    {money(Math.abs(b.targetAmount - b.realisasi))}
+                                  </ThemedText>
                                 </View>
                               </View>
                             );
@@ -611,7 +621,17 @@ const styles = StyleSheet.create({
   },
   entryActions: {
     flexDirection: 'row',
-    gap: Spacing.three,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: Spacing.one,
+  },
+  entryActionButtons: {
+    flexDirection: 'row',
+    gap: Spacing.three,
+  },
+  remainingText: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '600',
   },
 });

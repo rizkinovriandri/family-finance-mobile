@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CategoryIcon } from '@/components/category-icon';
 import { DonutChart, type DonutSlice } from '@/components/donut-chart';
 import {
   IconAlertCircle,
@@ -16,6 +17,7 @@ import {
   IconEyeOff,
   IconHome,
   IconPlus,
+  IconRepeat,
 } from '@/components/icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -35,8 +37,15 @@ import {
   type MonthlyTrendPoint,
 } from '@/lib/queries/dashboard';
 import { getPortfolioValueByAccount } from '@/lib/queries/holdings';
+import {
+  advanceRecurringSchedule,
+  listDueRecurringTransactions,
+  type RecurringTransactionWithDetails,
+} from '@/lib/queries/recurring-transactions';
 import { getInitials } from '@/lib/utils/avatar';
+import { confirmAction } from '@/lib/utils/confirm';
 import { formatCurrency } from '@/lib/utils/currency';
+import { formatShortDate } from '@/lib/utils/date';
 import { computeNetWorth } from '@/lib/utils/networth';
 
 const HIDDEN_AMOUNT = 'Rp ••••••';
@@ -48,6 +57,7 @@ type DashboardData = {
   summary: MonthlySummary;
   trend: MonthlyTrendPoint[];
   budget: BudgetOverview;
+  dueRecurring: RecurringTransactionWithDetails[];
 };
 
 function getGreeting() {
@@ -62,7 +72,7 @@ export default function BerandaScreen() {
   const theme = useTheme();
   const { membership } = useFamily();
   const { defaultBalanceVisible } = usePreferences();
-  const reloadTick = useRealtimeTick(['transactions', 'accounts', 'budgets'], membership?.family_id);
+  const reloadTick = useRealtimeTick(['transactions', 'accounts', 'budgets', 'recurring_transactions'], membership?.family_id);
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -80,14 +90,15 @@ export default function BerandaScreen() {
   const load = useCallback(async () => {
     if (!membership) return;
     try {
-      const [accounts, portfolioValueByAccount, summary, trend, budget] = await Promise.all([
+      const [accounts, portfolioValueByAccount, summary, trend, budget, dueRecurring] = await Promise.all([
         listAccounts(membership.family_id),
         getPortfolioValueByAccount(membership.family_id),
         getMonthlySummary(membership.family_id, membership.month_start_day),
         getMonthlyTrend(membership.family_id, membership.month_start_day),
         getBudgetOverview(membership.family_id, membership.month_start_day),
+        listDueRecurringTransactions(membership.family_id),
       ]);
-      setData({ accounts, portfolioValueByAccount, summary, trend, budget });
+      setData({ accounts, portfolioValueByAccount, summary, trend, budget, dueRecurring });
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal memuat beranda.');
@@ -153,6 +164,27 @@ export default function BerandaScreen() {
     { label: 'Atur Budget', icon: IconChartPie, route: '/budget' },
     { label: 'Lainnya', icon: IconDots, route: '/more' },
   ] as const;
+
+  function handleSkipRecurring(item: RecurringTransactionWithDetails) {
+    confirmAction(
+      'Lewati jadwal',
+      `Lewati "${item.description || item.categoryName}" ke jadwal berikutnya tanpa mencatat transaksi?`,
+      'Lewati',
+      async () => {
+        try {
+          await advanceRecurringSchedule({
+            id: item.id,
+            nextDueDate: item.nextDueDate,
+            frequency: item.frequency,
+            endDate: item.endDate,
+          });
+          await load();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Gagal melewati jadwal.');
+        }
+      }
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -266,6 +298,50 @@ export default function BerandaScreen() {
                 </ThemedText>
               </View>
             </View>
+
+            {data.dueRecurring.length > 0 && (
+              <ThemedView type="backgroundElement" style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <View style={styles.dueTitleRow}>
+                    <IconRepeat size={18} color={theme.accent} />
+                    <ThemedText type="smallBold">Tagihan Jatuh Tempo</ThemedText>
+                  </View>
+                  <Pressable onPress={() => router.push('/transactions/recurring')} hitSlop={8}>
+                    <ThemedText type="small" themeColor="accent">
+                      Kelola
+                    </ThemedText>
+                  </Pressable>
+                </View>
+
+                {data.dueRecurring.map((item) => (
+                  <View key={item.id} style={[styles.dueItem, { borderTopColor: theme.border }]}>
+                    <CategoryIcon name={item.categoryName} icon={item.categoryIcon} />
+                    <View style={styles.dueBody}>
+                      <ThemedText type="small" numberOfLines={1}>
+                        {item.description || item.categoryName}
+                      </ThemedText>
+                      <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                        Jatuh tempo {formatShortDate(item.nextDueDate)} · {money(item.amount)}
+                      </ThemedText>
+                      <View style={styles.dueActions}>
+                        <Pressable
+                          onPress={() => router.push({ pathname: '/transactions/new', params: { recurringId: item.id } })}
+                          hitSlop={8}>
+                          <ThemedText type="small" themeColor="accent">
+                            Catat
+                          </ThemedText>
+                        </Pressable>
+                        <Pressable onPress={() => handleSkipRecurring(item)} hitSlop={8}>
+                          <ThemedText type="small" themeColor="textSecondary">
+                            Lewati
+                          </ThemedText>
+                        </Pressable>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </ThemedView>
+            )}
 
             <View style={styles.quickActions}>
               {quickActions.map((action) => (
@@ -508,6 +584,29 @@ const styles = StyleSheet.create({
   },
   pillText: {
     color: '#ffffff',
+  },
+  dueTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  dueItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.three,
+    paddingTop: Spacing.two,
+    marginTop: Spacing.one,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  dueBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  dueActions: {
+    flexDirection: 'row',
+    gap: Spacing.three,
+    marginTop: Spacing.one,
   },
   quickActions: {
     flexDirection: 'row',

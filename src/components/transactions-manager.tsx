@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackHeader } from '@/components/back-header';
 import { CategoryIcon } from '@/components/category-icon';
+import { IconRepeat } from '@/components/icons';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -287,7 +288,16 @@ export function TransactionsManager({ filterAccountId }: TransactionsManagerProp
             <ThemedText type="title" style={styles.title}>
               {title}
             </ThemedText>
-            {addButton}
+            <View style={styles.headerActions}>
+              <Pressable
+                onPress={() => router.push('/transactions/recurring')}
+                hitSlop={8}
+                accessibilityLabel="Transaksi Berulang"
+                style={[styles.recurringButton, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+                <IconRepeat size={18} color={theme.textSecondary} />
+              </Pressable>
+              {addButton}
+            </View>
           </ThemedView>
         )}
 
@@ -392,6 +402,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     lineHeight: 34,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  recurringButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loading: {
     marginTop: Spacing.five,

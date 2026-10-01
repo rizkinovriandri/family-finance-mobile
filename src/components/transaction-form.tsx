@@ -13,6 +13,7 @@ import { PAYMENT_METHODS } from '@/constants/enums';
 import { Spacing } from '@/constants/theme';
 import type { LookupAccount, LookupMember } from '@/hooks/use-transaction-lookups';
 import type { Category, Subcategory } from '@/lib/queries/categories';
+import { advanceRecurringSchedule, type RecurringTransactionRow } from '@/lib/queries/recurring-transactions';
 import {
   createTransaction,
   createTransfer,
@@ -41,6 +42,9 @@ type TransactionFormProps = {
   editing?: TransactionRow | null;
   initialType?: TxType;
   initialCategoryId?: string;
+  // Diisi saat "Catat" dari reminder Tagihan Jatuh Tempo — form terprefill dari template ini,
+  // dan jadwalnya dimajukan otomatis setelah transaksi berhasil disimpan.
+  prefillRecurring?: RecurringTransactionRow | null;
   onSaved: () => void;
 };
 
@@ -63,24 +67,33 @@ export function TransactionForm({
   editing,
   initialType,
   initialCategoryId,
+  prefillRecurring,
   onSaved,
 }: TransactionFormProps) {
-  const [txType, setTxType] = useState<TxType>(editing ? (editing.type as TxType) : (initialType ?? 'Pengeluaran'));
-  const [amount, setAmount] = useState(editing?.amount ?? 0);
-  const [categoryId, setCategoryId] = useState(editing?.category_id ?? initialCategoryId ?? '');
-  const [subcategoryId, setSubcategoryId] = useState(editing?.subcategory_id ?? '');
-  const [accountId, setAccountId] = useState(editing?.account_id ?? defaultAccountId ?? accounts[0]?.id ?? '');
+  const [txType, setTxType] = useState<TxType>(
+    editing ? (editing.type as TxType) : (prefillRecurring?.type as TxType) ?? (initialType ?? 'Pengeluaran')
+  );
+  const [amount, setAmount] = useState(editing?.amount ?? prefillRecurring?.amount ?? 0);
+  const [categoryId, setCategoryId] = useState(
+    editing?.category_id ?? prefillRecurring?.category_id ?? initialCategoryId ?? ''
+  );
+  const [subcategoryId, setSubcategoryId] = useState(
+    editing?.subcategory_id ?? prefillRecurring?.subcategory_id ?? ''
+  );
+  const [accountId, setAccountId] = useState(
+    editing?.account_id ?? prefillRecurring?.account_id ?? defaultAccountId ?? accounts[0]?.id ?? ''
+  );
   const [fromAccountId, setFromAccountId] = useState(defaultAccountId ?? accounts[0]?.id ?? '');
   const [toAccountId, setToAccountId] = useState(
     accounts.find((a) => a.id !== (defaultAccountId ?? accounts[0]?.id))?.id ?? accounts[0]?.id ?? ''
   );
-  const [memberId, setMemberId] = useState(editing?.family_member_id ?? defaultMemberId);
+  const [memberId, setMemberId] = useState(editing?.family_member_id ?? prefillRecurring?.family_member_id ?? defaultMemberId);
   const [paymentMethod, setPaymentMethod] = useState<(typeof PAYMENT_METHODS)[number]>(
-    editing?.payment_method ?? 'Tunai'
+    editing?.payment_method ?? prefillRecurring?.payment_method ?? 'Tunai'
   );
-  const [date, setDate] = useState(editing?.date ?? toLocalISODate(new Date()));
-  const [description, setDescription] = useState(editing?.description ?? '');
-  const [notes, setNotes] = useState(editing?.notes ?? '');
+  const [date, setDate] = useState(editing?.date ?? prefillRecurring?.next_due_date ?? toLocalISODate(new Date()));
+  const [description, setDescription] = useState(editing?.description ?? prefillRecurring?.description ?? '');
+  const [notes, setNotes] = useState(editing?.notes ?? prefillRecurring?.notes ?? '');
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -159,6 +172,14 @@ export function TransactionForm({
         await updateTransaction(editing.id, result.data);
       } else {
         await createTransaction(familyId, result.data);
+        if (prefillRecurring) {
+          await advanceRecurringSchedule({
+            id: prefillRecurring.id,
+            nextDueDate: prefillRecurring.next_due_date,
+            frequency: prefillRecurring.frequency,
+            endDate: prefillRecurring.end_date,
+          });
+        }
       }
       onSaved();
     } catch (err) {
@@ -170,7 +191,9 @@ export function TransactionForm({
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
       <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-        {!editing && <ChipPicker label="Jenis" options={TX_TYPE_OPTIONS} value={txType} onChange={handleTypeChange} />}
+        {!editing && !prefillRecurring && (
+          <ChipPicker label="Jenis" options={TX_TYPE_OPTIONS} value={txType} onChange={handleTypeChange} />
+        )}
 
         <CurrencyField label="Jumlah" value={amount} onChange={setAmount} error={fieldErrors.amount} />
 

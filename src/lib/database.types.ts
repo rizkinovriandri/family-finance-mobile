@@ -46,6 +46,8 @@ export type CouponFrequency = "Bulanan" | "Triwulanan" | "Semesteran" | "Tahunan
 
 export type GoldType = "Fisik/Batangan" | "Digital/Tabungan Emas";
 
+export type RecurringFrequency = "Harian" | "Mingguan" | "Bulanan" | "Tahunan";
+
 export interface Database {
   public: {
     Tables: {
@@ -311,6 +313,50 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["investment_holdings"]["Insert"]>;
+        Relationships: [];
+      };
+      recurring_transactions: {
+        Row: {
+          id: string;
+          family_id: string;
+          type: TransactionType;
+          category_id: string;
+          subcategory_id: string | null;
+          account_id: string;
+          family_member_id: string;
+          payment_method: PaymentMethod;
+          amount: number;
+          description: string | null;
+          notes: string | null;
+          frequency: RecurringFrequency;
+          next_due_date: string;
+          end_date: string | null;
+          is_active: boolean;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          type: TransactionType;
+          category_id: string;
+          subcategory_id?: string | null;
+          account_id: string;
+          family_member_id: string;
+          payment_method: PaymentMethod;
+          amount: number;
+          description?: string | null;
+          notes?: string | null;
+          frequency: RecurringFrequency;
+          next_due_date: string;
+          end_date?: string | null;
+          is_active?: boolean;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["recurring_transactions"]["Insert"]>;
         Relationships: [];
       };
     };
